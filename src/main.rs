@@ -8,6 +8,7 @@ mod resolver;
 mod pacdat;
 mod pacstream;
 mod pcap;
+mod geoip;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
