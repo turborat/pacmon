@@ -14,7 +14,7 @@ use crate::pacstream::PacStream;
 use crate::pcap::Pcap;
 use crate::resolver::Resolver;
 
-pub fn run(_args: Vec<String>) {
+pub fn run() {
     init_logging();
 
     let mut interfaces = BTreeSet::new();

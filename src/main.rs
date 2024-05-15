@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::env;
 
 mod pacmon;
@@ -9,10 +10,9 @@ mod pacdat;
 mod pacstream;
 mod pcap;
 mod geoip;
-mod geoip_loader;
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    pacmon::run(args);
+    let args: HashSet<String> = env::args().collect();
+    pacmon::run();
 }
 
