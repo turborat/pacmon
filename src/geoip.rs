@@ -1,10 +1,8 @@
 use std::collections::BTreeMap;
-use std::net::IpAddr;
 use crate::etc::log;
 use std::time::Instant;
-use crate::geoip_loader::*;
 
-struct GeoIp {
+pub struct GeoIp {
     companies: BTreeMap<String, String>,
     countries: BTreeMap<String, Location>,
 }
