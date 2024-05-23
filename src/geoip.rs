@@ -19,13 +19,13 @@ impl GeoIp {
 
         let load = Instant::now();        
         let ccc = geoip_data::load_companies();
-        log(format!("load companies took {:?}", load.elapsed())); 
+        log(format!("geoip::load::companies took {:?}", load.elapsed()));
 
         let insert = Instant::now();        
         for cc in ccc {
           companies.insert(cc[0].to_string(), cc[1].to_string());
         }
-        log(format!("insert companies took {:?}", insert.elapsed())); 
+        log(format!("geoip::insert::companies took {:?}", insert.elapsed()));
 
         GeoIp { companies, countries: BTreeMap::new() }
     }

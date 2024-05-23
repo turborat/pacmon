@@ -12,6 +12,7 @@ use regex::Regex;
 use crate::etc;
 
 use crate::etc::log;
+use crate::geoip::GeoIp;
 
 // $ cat /proc/net/tcp
 //   sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode
@@ -33,7 +34,8 @@ pub struct Resolver {
     dns_cache: BTreeMap<IpAddr, String>,
     pid_cache: BTreeMap<(IpNumber, IpAddr, u16), Option<u32>>,
     proc_cache: BTreeMap<u32, Option<String>>,
-    services: BTreeMap<u16, String>
+    services: BTreeMap<u16, String>,
+    geoip: GeoIp
 }
 
 impl Resolver {
@@ -45,7 +47,8 @@ impl Resolver {
             dns_cache: BTreeMap::new(),
             pid_cache: BTreeMap::new(),
             proc_cache: BTreeMap::new(),
-            services
+            services,
+            geoip: GeoIp::new()
         }
     }
 
