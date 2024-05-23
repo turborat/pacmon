@@ -10,9 +10,12 @@ mod pacdat;
 mod pacstream;
 mod pcap;
 mod geoip;
+mod mymod;
 
 fn main() {
-    let args: HashSet<String> = env::args().collect();
-    pacmon::run();
+    // let args: HashSet<String> = env::args().collect();
+    // pacmon::run();
+    let companies = mymod::load_companies();
+    println!("Loaded {} companies", companies.len());
 }
 

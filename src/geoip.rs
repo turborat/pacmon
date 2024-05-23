@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use crate::etc::log;
+use crate::{geoip, mymod};
 use std::time::Instant;
 
 pub struct GeoIp {
@@ -17,7 +18,7 @@ impl GeoIp {
         let mut companies: BTreeMap<String,String> = BTreeMap::new();
 
         let load = Instant::now();        
-        let ccc = load_companies();
+        let ccc = mymod::load_companies();
         log(format!("load companies took {:?}", load.elapsed())); 
 
         let insert = Instant::now();        
