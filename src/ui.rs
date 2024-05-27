@@ -22,7 +22,7 @@ struct UIOpt {
     q_depth: u64,
     dropped: u64,
     pac_vec: Vec<PacStream>,
-    widths: Vec<u32>,
+    widths: Vec<i8>,
     resolve: bool,
     help: bool,
     pause: bool,
@@ -176,7 +176,7 @@ fn redraw() {
     LAST.store(millitime(), Relaxed);
 }
 
-fn render_help(pac_vec: Vec<PacStream>, widths: Vec<u32>, q_depth: u64, dropped: u64,
+fn render_help(pac_vec: Vec<PacStream>, widths: Vec<i8>, q_depth: u64, dropped: u64,
                resolve: bool, last_draw: Option<Instant>, pause: bool, interval: Duration) {
     clear();
 
@@ -222,7 +222,7 @@ fn render_help(pac_vec: Vec<PacStream>, widths: Vec<u32>, q_depth: u64, dropped:
     refresh();
 }
 
-fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<u32>, q_depth: u64, dropped: u64, resolve: bool, interval: Duration) {
+fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i8>, q_depth: u64, dropped: u64, resolve: bool, interval: Duration) {
     let nrows = min(pac_vec.len(), (LINES() - 2) as usize);
     let mut matrix: Vec<Vec<Cell>> = Vec::new();
 
@@ -236,22 +236,38 @@ fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<u32>, q_depth: u64, droppe
         matrix.push(row);
     }
 
-    let widths = compute_widths(&matrix, &widths);
+    let mut widths = compute_widths(&matrix, &widths);
+
+    // hack to resize //
+    let render_len = widths.iter().sum::<i8>();
+    let deficit = COLS() as i8 - render_len;
+    let compA = deficit / 2;
+    let compB = deficit - compA;
+    widths[4 /*local-host*/] += compA;
+    widths[8 /*remote-host*/] += compB;
 
     clear();
 
     for i in 0..matrix.len() {
         let row = matrix.get(i).unwrap();
-        let mut x = 0u32;
+        let mut x = 0i8;
         let y = i;
 
         for j in 0..row.len() {
             let cell = row.get(j).unwrap();
             let width = widths.get(j).unwrap();
 
+            let txt = if cell.width() > *width {
+                let ret = trim(*width as usize, &cell.txt);
+                log(format!("{} => {}", "trimming!", ret));
+                ret
+            } else {
+                cell.txt.to_string()
+            };
+
             let offset = match cell.justify {
                 LHS => 0,
-                RHS => width - cell.width()
+                RHS => width - txt.len() as i8
             };
 
             if i == 0 {
@@ -261,7 +277,7 @@ fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<u32>, q_depth: u64, droppe
                 attroff(A_BOLD());
             }
 
-            mvprintw(y as i32, (x + offset) as i32, &cell.txt);
+            mvprintw(y as i32, (x + offset) as i32, &txt);
 
             x += width;
         }
@@ -327,16 +343,16 @@ impl Cell {
         Cell { txt: txt.to_string(), justify }
     }
 
-    fn width(&self) -> u32 {
+    fn width(&self) -> i8 {
         match self.txt.contains("%%") {
-            true => (self.txt.len() - 1) as u32,
-            false => self.txt.len() as u32
+            true => (self.txt.len() - 1) as i8,
+            false => self.txt.len() as i8
         }
     }
 }
 
-fn compute_widths(matrix:&Vec<Vec<Cell>>, prev_widths:&Vec<u32>) -> Vec<u32> {
-    let mut ret:Vec<u32> = Vec::new();
+fn compute_widths(matrix:&Vec<Vec<Cell>>, prev_widths:&Vec<i8>) -> Vec<i8> {
+    let mut ret:Vec<i8> = Vec::new();
 
     for i in 0..matrix.len() {
         for j in 0..matrix.get(i).unwrap().len() {
@@ -461,9 +477,15 @@ fn trunc(len:usize, txt:&str) -> &str {
 }
 
 #[allow(dead_code)]
-fn trim(len:usize, txt:&str) -> &str {
-    let start = max(0, txt.len() as i32 - len as i32) as usize;
-    &txt[start..txt.len()]
+fn trim(len:usize, txt:&str) -> String {
+    if txt.len() > len {
+        let start = txt.len() - len + 1;
+        let ret = "|".to_owned() + &txt[start..txt.len()];
+        ret
+    }
+    else {
+        txt.to_string()
+    }
 }
 
 fn trim_host(host:&String) -> String {
@@ -539,7 +561,7 @@ mod tests {
     #[test]
     fn test_compute_widths() {
         let mut matrix:Vec<Vec<Cell>> = Vec::new();
-        assert_eq!(vec![] as Vec<u32>, compute_widths(&matrix, &vec![]));
+        assert_eq!(vec![] as Vec<i8>, compute_widths(&matrix, &vec![]));
         matrix.push(vec![Cell::new(RHS, "a"), Cell::new(RHS, "")]);
         assert_eq!(vec![1, 0], compute_widths(&matrix, &vec![]));
         matrix.push(vec![Cell::new(RHS, "aa"), Cell::new(RHS, "c")]);
