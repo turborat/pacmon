@@ -54,6 +54,46 @@ pub fn same_subnet(addr1:&IpAddr, addr2:&IpAddr, mask:&IpAddr) -> bool {
     }
 }
 
+pub fn parse_subnet(txt:&str) -> u128 {
+    fn to_int(oo:&[u8]) -> u128 {
+        let mut ret = 0u128;
+        for o in oo {
+            ret <<= 8;
+            ret += *o as u128;
+        }
+        ret
+    }
+
+    fn to_mask(mask_bits:u8, mask_len:u8) -> u128 {
+        let mut ret = 0u128;
+        for _ in 0..mask_bits {
+            ret <<= 1;
+            ret += 1;
+        }
+        ret << (mask_len - mask_bits)
+    }
+
+    let parts:Vec<_> = txt.split("/").collect();
+    if parts.len() != 2 {
+        panic!("?!:{}", txt);
+    }
+
+    let addr_str = parts[0];
+    let mask_bits = parts[1].parse::<u8>().unwrap();
+
+    match addr_str.parse::<Ipv4Addr>() {
+        Ok(addr) => {
+            to_int(&addr.octets()) & to_mask(mask_bits, 32)
+        },
+        Err(_) => match addr_str.parse::<Ipv6Addr>() {
+            Ok(addr) => {
+                to_int(&addr.octets()) & to_mask(mask_bits, 128)
+            },
+            Err(err) => panic!("{}: {}", err, addr_str)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::net::{IpAddr, Ipv4Addr};
