@@ -46,6 +46,7 @@ static CMDS:Mutex<Lazy<HashMap<char,fn(&mut UIOpt)>>> = Mutex::new(Lazy::new(||H
 static HELP:Mutex<Lazy<HashMap<char,String>>> = Mutex::new(Lazy::new(||HashMap::new()));
 static LAST:AtomicI64 = AtomicI64::new(0);
 
+//put this somewhere else//
 pub fn exit(code:i32, msg:String) {
     endwin();
     eprintln!("{}", msg);
@@ -55,7 +56,10 @@ pub fn exit(code:i32, msg:String) {
 pub fn set_panic_hook() {
     panic::set_hook(Box::new(|panic_info| {
         let msg = format!("DIED: {:?} {}", panic_info, Backtrace::capture());
-        exit(-1, msg);
+        if msg.contains("Operation not permitted") {
+            exit(-1, "Operation not permitted".to_string());
+        }
+        exit(-2, msg);
     }));
 }
 
