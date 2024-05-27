@@ -68,9 +68,10 @@ impl Pcap {
 
             match cap.stats() {
                 Ok(stats) => {
-                    if stats.dropped > 0 {
-                        dropped.fetch_max(stats.dropped as u64, Ordering::Relaxed);
-                        log(format!("dropped {} packets", stats.dropped));
+                    let dropped = stats.dropped + stats.if_dropped;
+                    if dropped > 0 {
+                        dropped.fetch_max(dropped as u64, Ordering::Relaxed);
+                        log(format!("dropped {} packets", dropped));
                     }
                 }
                 Err(err) => panic!("{}", err)

@@ -257,7 +257,7 @@ fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i8>, q_depth: u64, dropped
             let cell = row.get(j).unwrap();
             let width = widths.get(j).unwrap();
 
-            let txt = if cell.width() > *width {
+            let txt = if actual_width(&cell.txt) > *width {
                 let ret = trim(*width as usize, &cell.txt);
                 log(format!("{} => {}", "trimming!", ret));
                 ret
@@ -267,7 +267,7 @@ fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i8>, q_depth: u64, dropped
 
             let offset = match cell.justify {
                 LHS => 0,
-                RHS => width - txt.len() as i8
+                RHS => width - actual_width(&txt) as i8
             };
 
             if i == 0 {
@@ -342,12 +342,12 @@ impl Cell {
     fn new(justify:Justify, txt:&str) -> Self {
         Cell { txt: txt.to_string(), justify }
     }
+}
 
-    fn width(&self) -> i8 {
-        match self.txt.contains("%%") {
-            true => (self.txt.len() - 1) as i8,
-            false => self.txt.len() as i8
-        }
+fn actual_width(txt:&str) -> i8 {
+    match txt.contains("%%") {
+        true => (txt.len() - 1) as i8,
+        false => txt.len() as i8
     }
 }
 
@@ -359,10 +359,10 @@ fn compute_widths(matrix:&Vec<Vec<Cell>>, prev_widths:&Vec<i8>) -> Vec<i8> {
             let cell = matrix.get(i).unwrap().get(j).unwrap();
             match ret.get(j) {
                 Some(len) => {
-                    ret[j] = max(cell.width(), *len);
+                    ret[j] = max(actual_width(&cell.txt), *len);
                 }
                 None => {
-                    ret.insert(j, cell.width());
+                    ret.insert(j, actual_width(&cell.txt));
                 }
             }
         }
