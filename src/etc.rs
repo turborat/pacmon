@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use std::{fs, io};
+use std::{fs};
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::sync::Mutex;

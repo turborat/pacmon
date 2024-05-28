@@ -541,7 +541,6 @@ fn speed(bytes: u64, elapsed: Duration) -> String {
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
-    use crate::subnets::parse_subnet_to_int;
     use crate::ui::{speed, Cell, compute_widths, pct_fmt, trim, trim_host, trunc};
     use crate::ui::Justify::RHS;
 

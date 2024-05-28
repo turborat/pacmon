@@ -12,10 +12,12 @@ mod pacstream;
 mod pcap;
 mod ipdata;
 mod ipdata_companies;
+mod ipdata_locations;
 
 fn main() {
     let args: HashSet<String> = env::args().collect();
     if args.contains("-x") {
+        eprintln!("special mode");
         special_processing()
     }
     else {
@@ -24,19 +26,22 @@ fn main() {
 }
 
 fn special_processing() {
-    let regex = Regex::new("(.*\\[)\"([^\"]+)\"(.*)").unwrap();
+    let regex = Regex::new("(^[^,]+)(,.*)").unwrap();
     for line in io::stdin().lines() {
         let txt = line.unwrap();
         if let Some(captures) = regex.captures(&txt) {
             let part1 = captures.get(1).unwrap().as_str();
             let part2 = captures.get(2).unwrap().as_str();
-            let part3 = captures.get(3).unwrap().as_str();
 
-            match subnets::parse_subnet_to_int(part2) {
+            match subnets::parse_subnet_to_int(part1) {
                 Ok(subnet) => {
-                    println!("{}{} /*{}*/ {}", part1, subnet, part2, part3);
+                    println!("{} /*{}*/ {}", subnet, part1, part2);
                 }
-                Err(msg) => eprintln!("{}", msg)
+                Err(msg) => {
+                    // currently discard ip's that don't have a subnet
+                    // better way to handle??
+                    eprintln!("{}", msg)
+                }
             }
         } else {
             println!("{}", &txt);
