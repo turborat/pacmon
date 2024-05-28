@@ -1,3 +1,4 @@
+use std::any::{Any};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::net::IpAddr::{V4, V6};
 
@@ -54,16 +55,23 @@ pub fn same_subnet(addr1:&IpAddr, addr2:&IpAddr, mask:&IpAddr) -> bool {
     }
 }
 
-pub fn parse_subnet(txt:&str) -> u128 {
-    fn to_int(oo:&[u8]) -> u128 {
-        let mut ret = 0u128;
-        for o in oo {
-            ret <<= 8;
-            ret += *o as u128;
-        }
-        ret
+pub fn addr_to_int(addr:IpAddr) -> u128 {
+    match addr {
+        V4(v4addr) => octets_to_int(&v4addr.octets()),
+        V6(v6addr) => octets_to_int(&v6addr.octets())
     }
+}
 
+fn octets_to_int(oo:&[u8]) -> u128 {
+    let mut ret = 0u128;
+    for o in oo {
+        ret <<= 8;
+        ret += *o as u128;
+    }
+    ret
+}
+
+pub fn parse_subnet_to_int(txt:&str) -> Result<u128,String> {
     fn to_mask(mask_bits:u8, mask_len:u8) -> u128 {
         let mut ret = 0u128;
         for _ in 0..mask_bits {
@@ -75,22 +83,29 @@ pub fn parse_subnet(txt:&str) -> u128 {
 
     let parts:Vec<_> = txt.split("/").collect();
     if parts.len() != 2 {
-        panic!("?!:{}", txt);
+        return Err(format!("?!:{}", txt));
     }
 
     let addr_str = parts[0];
     let mask_bits = parts[1].parse::<u8>().unwrap();
 
     match addr_str.parse::<Ipv4Addr>() {
-        Ok(addr) => {
-            to_int(&addr.octets()) & to_mask(mask_bits, 32)
-        },
-        Err(_) => match addr_str.parse::<Ipv6Addr>() {
-            Ok(addr) => {
-                to_int(&addr.octets()) & to_mask(mask_bits, 128)
-            },
-            Err(err) => panic!("{}: {}", err, addr_str)
-        }
+        Ok(addr) => return Ok(octets_to_int(&addr.octets()) & to_mask(mask_bits, 32)),
+        Err(_) => {}
+    };
+
+    match addr_str.parse::<Ipv6Addr>() {
+        Ok(addr) => return Ok(octets_to_int(&addr.octets()) & to_mask(mask_bits, 128)),
+        Err(_) => {}
+    };
+
+    Err(format!("Failed to parse [{}]", addr_str))
+}
+
+pub fn addr(txt:&str) -> IpAddr {
+    match txt.parse::<Ipv4Addr>() {
+        Ok(addr) => V4(addr),
+        Err(_) => V6(txt.parse::<Ipv6Addr>().unwrap())
     }
 }
 
@@ -98,7 +113,7 @@ pub fn parse_subnet(txt:&str) -> u128 {
 mod tests {
     use std::net::{IpAddr, Ipv4Addr};
     use IpAddr::V4;
-    use crate::subnets::subnet;
+    use crate::subnets::{addr, addr_to_int, parse_subnet_to_int, subnet};
 
     #[test]
     fn test_subnet() {
@@ -107,6 +122,26 @@ mod tests {
         let expected = V4(Ipv4Addr::new(12, 12, 0, 0));
         assert_eq!(Some(expected), subnet(&addr, &mask));
     }
+
+    #[test]
+    fn test_parse_subnet() {
+        assert_eq!(0, parse_subnet_to_int("0.0.0.0/32").unwrap());
+        assert_eq!(0x08080808, parse_subnet_to_int("8.8.8.8/32").unwrap());
+        assert_eq!(0x08080000, parse_subnet_to_int("8.8.8.8/16").unwrap());
+        assert_eq!(0xFF000000, parse_subnet_to_int("255.255.255.255/8").unwrap());
+        assert_eq!(42540766452641154071740215577757643572, parse_subnet_to_int("2001:0db8:85a3:0000:0000:8a2e:0370:7334/128").unwrap());
+        assert_eq!(42540766452641154071740063647526813696, parse_subnet_to_int("2001:0db8:85a3:0000:0000:8a2e:0370:7334/64").unwrap());
+        assert_eq!(42535295865117307932921825928971026432, parse_subnet_to_int("2001:0db8:85a3:0000:0000:8a2e:0370:7334/8").unwrap());
+    }
+
+    #[test]
+    fn test_addr_to_int() {
+        assert_eq!(0, addr_to_int(addr("0.0.0.0")));
+        assert_eq!(0x08080808, addr_to_int(addr("8.8.8.8")));
+        assert_eq!(0x00FF0000, addr_to_int(addr("0.255.0.0")));
+        assert_eq!(42540766452641154071740215577757643572, addr_to_int(addr("2001:0db8:85a3:0000:0000:8a2e:0370:7334")));
+    }
+
 }
 
 

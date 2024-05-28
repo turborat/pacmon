@@ -48,7 +48,7 @@ impl Pcap {
         // note that we have immediate_mode=true in addition to non-zero buffer.
         // this seems to not konk out when we are eg making a fast transfer.
         let mut cap = Capture::from_device(dev).unwrap()
-            .promisc(false).immediate_mode(true).buffer_size(1000*1000*1000).open().unwrap();
+            .promisc(true).immediate_mode(true).buffer_size(1000*1000*1000).open().unwrap();
 
         loop {
             match cap.next_packet() {

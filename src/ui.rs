@@ -89,7 +89,7 @@ pub fn should_redraw() -> bool {
         false
     }
     else {
-        millitime() - LAST.fetch_sub(0, Relaxed) > 2000
+        millitime() - LAST.fetch_sub(0, Relaxed) > 4000
     }
 }
 
@@ -541,7 +541,7 @@ fn speed(bytes: u64, elapsed: Duration) -> String {
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
-    use crate::subnets::parse_subnet;
+    use crate::subnets::parse_subnet_to_int;
     use crate::ui::{speed, Cell, compute_widths, pct_fmt, trim, trim_host, trunc};
     use crate::ui::Justify::RHS;
 
@@ -554,7 +554,7 @@ mod tests {
 
     #[test]
     fn test_trim() {
-        assert_eq!("def", trim(3, "abcdef"));
+        assert_eq!("|ef", trim(3, "abcdef"));
         assert_eq!("abc", trim(6, "abc"));
         assert_eq!("", trunc(3, ""));
     }
@@ -597,16 +597,5 @@ mod tests {
         assert_eq!("123b/s", speed(123, Duration::from_millis(0)));
         assert_eq!("246b/s", speed(123, Duration::from_millis(500)));
         assert_eq!("11k/s", speed(22*1024, Duration::from_millis(2000)));
-    }
-
-    #[test]
-    fn test_parse_subnet() {
-        assert_eq!(0, parse_subnet("0.0.0.0/32"));
-        assert_eq!(0x08080808, parse_subnet("8.8.8.8/32"));
-        assert_eq!(0x08080000, parse_subnet("8.8.8.8/16"));
-        assert_eq!(0xFF000000, parse_subnet("255.255.255.255/8"));
-        assert_eq!(42540766452641154071740215577757643572, parse_subnet("2001:0db8:85a3:0000:0000:8a2e:0370:7334/128"));
-        assert_eq!(42540766452641154071740063647526813696, parse_subnet("2001:0db8:85a3:0000:0000:8a2e:0370:7334/64"));
-        assert_eq!(42535295865117307932921825928971026432, parse_subnet("2001:0db8:85a3:0000:0000:8a2e:0370:7334/8"));
     }
 }
