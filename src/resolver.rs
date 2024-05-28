@@ -89,11 +89,15 @@ impl Resolver {
         host
     }
 
-    pub fn resolve_service(&self, port: u16) -> String {
+    pub fn resolve_service(&self, port:u16) -> String {
         match self.services.get(&port) {
             Some(service) => service.to_string(),
             None => port.to_string()
         }
+    }
+
+    pub fn resolve_cc(&self, addr:&IpAddr) -> String {
+        self.ipdata.location(addr).country.to_string()
     }
 }
 

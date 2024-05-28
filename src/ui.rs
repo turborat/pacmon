@@ -437,6 +437,9 @@ fn render(stream:&PacStream, total_bytes_sent: u64, total_bytes_recv: u64,
     ret.push(Cell::new(RHS, &mag_fmt(stream.bytes_sent)));
     ret.push(Cell::new(RHS, ") "));
     ret.push(Cell::new(RHS, &stream.age()));
+    ret.push(Cell::new(RHS, " "));
+    ret.push(Cell::new(RHS, &stream.cc));
+
     ret
 }
 
@@ -468,15 +471,11 @@ fn header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: Duration) -> Ve
     ret.push(Cell::new(LHS, ""));
     ret.push(Cell::new(LHS, ""));
     ret.push(Cell::new(RHS, "age"));
+    ret.push(Cell::new(LHS, ""));
+    ret.push(Cell::new(RHS, "cc"));
     ret
 }
 
-#[allow(dead_code)]
-fn trunc(len:usize, txt:&str) -> &str {
-    &txt[..min(len, txt.len())]
-}
-
-#[allow(dead_code)]
 fn trim(len:usize, txt:&str) -> String {
     if txt.len() > len {
         let start = txt.len() - len + 1;
@@ -541,21 +540,13 @@ fn speed(bytes: u64, elapsed: Duration) -> String {
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
-    use crate::ui::{speed, Cell, compute_widths, pct_fmt, trim, trim_host, trunc};
+    use crate::ui::{speed, Cell, compute_widths, pct_fmt, trim, trim_host};
     use crate::ui::Justify::RHS;
-
-    #[test]
-    fn test_trunc() {
-        assert_eq!("abc", trunc(3, "abcdef"));
-        assert_eq!("abc", trunc(6, "abc"));
-        assert_eq!("", trunc(3, ""));
-    }
 
     #[test]
     fn test_trim() {
         assert_eq!("|ef", trim(3, "abcdef"));
         assert_eq!("abc", trim(6, "abc"));
-        assert_eq!("", trunc(3, ""));
     }
 
     #[test]

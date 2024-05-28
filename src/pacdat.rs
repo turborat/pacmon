@@ -19,7 +19,8 @@ pub struct PacDat {
     pub src_port: Option<u16>,
     pub dst_port: Option<u16>,
     pub dir: Option<Dir>,
-    pub foreign: Option<bool>
+    pub foreign: Option<bool>,
+    pub local_traffic: Option<bool>
 }
 
 #[derive(Ord, PartialOrd, Eq, PartialEq)]

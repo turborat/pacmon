@@ -27,7 +27,8 @@ pub struct PacStream {
     pub remote_service: String,
     pub cc: String,
     pub ts_last: DateTime<Utc>,
-    pub foreign: bool,
+    pub foreign: bool,              // foreign = from another local host
+    pub local_traffic: bool,        // is the traffic just on our subnet
     pub ip_number: IpNumber,
     pub packets_in: u64,
     pub packets_out: u64
@@ -56,9 +57,10 @@ impl PacStream {
             remote_addr: remote_addr.unwrap(),
             remote_host: "tbd".to_string(),
             remote_service: "tbd".to_string(),
-            cc: "tbd".to_string(),
+            cc: "??".to_string(),
             ts_last: pac_dat.ts,
             foreign: pac_dat.foreign.unwrap(),
+            local_traffic: pac_dat.local_traffic.unwrap(),
             ip_number: pac_dat.ip_number.unwrap(),
             packets_in: 0,
             packets_out:0
@@ -122,5 +124,11 @@ impl PacStream {
         self.remote_host = resolver.resolve_host(self.remote_addr).to_string();
         self.local_service = resolver.resolve_service(self.local_port);
         self.remote_service = resolver.resolve_service(self.remote_port);
+        self.cc = if self.local_traffic {
+            "-".to_string()
+        }
+        else {
+            resolver.resolve_cc(&self.remote_addr)
+        }
     }
 }

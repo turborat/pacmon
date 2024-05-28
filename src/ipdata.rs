@@ -12,8 +12,8 @@ pub struct IpData {
 }
 
 pub struct Location {
-    city: String,
-    country: String
+    pub city: String,
+    pub country: String
 }
 
 impl IpData {
@@ -52,7 +52,7 @@ impl IpData {
         IpData { companies, locations }
     }
 
-    pub fn company(&self, addr:IpAddr) -> String {
+    pub fn company(&self, addr:&IpAddr) -> String {
         let t1 = Instant::now();
         let ip_int = addr_to_int(addr);
         if let Some((&_, &ref v)) = self.companies.range(..=ip_int).next_back() {
@@ -64,7 +64,7 @@ impl IpData {
         }
     }
 
-    pub fn location(&self, addr:IpAddr) -> &Location {
+    pub fn location(&self, addr:&IpAddr) -> &Location {
         let t1 = Instant::now();
         let ip_int = addr_to_int(addr);
         if let Some((&_, &ref v)) = self.locations.range(..=ip_int).next_back() {
@@ -86,18 +86,18 @@ mod tests {
     #[test]
     fn test_company() {
         let ipdata = IpData::new();
-        assert_eq!("GOOGLE", ipdata.company(addr("8.8.8.8")));
-        assert_eq!("GOOGLE", ipdata.company(addr("8.8.8.4")));
-        assert_eq!("GOOGLE", ipdata.company(addr("8.8.8.0")));
-        assert_eq!("CLOUDFLARENET", ipdata.company(addr("1.0.0.0")));
-        assert_eq!("TOT Public Company Limited", ipdata.company(addr("1.1.0.0")));
+        assert_eq!("GOOGLE", ipdata.company(&addr("8.8.8.8")));
+        assert_eq!("GOOGLE", ipdata.company(&addr("8.8.8.4")));
+        assert_eq!("GOOGLE", ipdata.company(&addr("8.8.8.0")));
+        assert_eq!("CLOUDFLARENET", ipdata.company(&addr("1.0.0.0")));
+        assert_eq!("TOT Public Company Limited", ipdata.company(&addr("1.1.0.0")));
     }
 
     #[test]
     fn test_location() {
         let ipdata = IpData::new();
-        assert_eq!("US", ipdata.location(addr("8.8.8.8")).country);
-        assert_eq!("Suitland", ipdata.location(addr("8.8.11.8")).city);
+        assert_eq!("US", ipdata.location(&addr("8.8.8.8")).country);
+        assert_eq!("Suitland", ipdata.location(&addr("8.8.11.8")).city);
     }
 
 }

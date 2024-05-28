@@ -99,7 +99,7 @@ impl Pcap {
             ts: dt, len: None, ip_number: None,
             src_addr: None, dst_addr: None,
             src_port: None, dst_port: None,
-            dir: None, foreign: None
+            dir: None, foreign: None, local_traffic: None
         };
 
         match SlicedPacket::from_ethernet(&packet) {
@@ -136,9 +136,10 @@ impl Pcap {
         }
 
         match Pcap::get_dir_foreign(&pac_dat.src_addr.unwrap(), &pac_dat.dst_addr.unwrap(), interfaces) {
-            Some((dir, foreign)) => {
-                pac_dat.dir = dir;
-                pac_dat.foreign = foreign;
+            Some((dir, foreign, local_traffic)) => {
+                pac_dat.dir = Some(dir);
+                pac_dat.foreign = Some(foreign);
+                pac_dat.local_traffic = Some(local_traffic);
                 Some(pac_dat)
             }
             None => {
@@ -148,25 +149,28 @@ impl Pcap {
         }
     }
 
+    // do this later, off the pcap thread //
     fn get_dir_foreign(src_addr:&IpAddr, dst_addr:&IpAddr, interfaces:&BTreeSet<(IpAddr,IpAddr)>)
-                       -> Option<(Option<Dir>, Option<bool>)> {
+                       -> Option<(Dir, bool, bool)> {
         for interface in interfaces {
             let (if_addr, mask) = interface;
 
+            let local_traffic = same_subnet(src_addr, dst_addr, mask);
+
             if if_addr == src_addr {
-                return Some((Some(Dir::Out), Some(false)));
+                return Some((Dir::Out, false, local_traffic));
             }
 
             if if_addr == dst_addr {
-                return Some((Some(Dir::In), Some(false)));
+                return Some((Dir::In, false, local_traffic));
             }
 
             if same_subnet(if_addr, src_addr, mask) {
-                return Some((Some(Dir::Out), Some(true)));
+                return Some((Dir::Out, true, local_traffic));
             }
 
             if same_subnet(if_addr, dst_addr, mask) {
-                return Some((Some(Dir::In), Some(true)));
+                return Some((Dir::In, true, local_traffic));
             }
         }
 

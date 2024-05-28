@@ -54,7 +54,7 @@ pub fn same_subnet(addr1:&IpAddr, addr2:&IpAddr, mask:&IpAddr) -> bool {
     }
 }
 
-pub fn addr_to_int(addr:IpAddr) -> u128 {
+pub fn addr_to_int(addr:&IpAddr) -> u128 {
     match addr {
         V4(v4addr) => octets_to_int(&v4addr.octets()),
         V6(v6addr) => octets_to_int(&v6addr.octets())
@@ -135,10 +135,10 @@ mod tests {
 
     #[test]
     fn test_addr_to_int() {
-        assert_eq!(0, addr_to_int(addr("0.0.0.0")));
-        assert_eq!(0x08080808, addr_to_int(addr("8.8.8.8")));
-        assert_eq!(0x00FF0000, addr_to_int(addr("0.255.0.0")));
-        assert_eq!(42540766452641154071740215577757643572, addr_to_int(addr("2001:0db8:85a3:0000:0000:8a2e:0370:7334")));
+        assert_eq!(0, addr_to_int(&addr("0.0.0.0")));
+        assert_eq!(0x08080808, addr_to_int(&addr("8.8.8.8")));
+        assert_eq!(0x00FF0000, addr_to_int(&addr("0.255.0.0")));
+        assert_eq!(42540766452641154071740215577757643572, addr_to_int(&addr("2001:0db8:85a3:0000:0000:8a2e:0370:7334")));
     }
 
 }
