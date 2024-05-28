@@ -440,6 +440,11 @@ fn render(stream:&PacStream, total_bytes_sent: u64, total_bytes_recv: u64,
     ret.push(Cell::new(RHS, " "));
     ret.push(Cell::new(RHS, &stream.cc));
 
+    if COLS() > 105 {
+        ret.push(Cell::new(RHS, " "));
+        ret.push(Cell::new(RHS, &stream.corp));
+    }
+
     ret
 }
 
@@ -473,6 +478,12 @@ fn header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: Duration) -> Ve
     ret.push(Cell::new(RHS, "age"));
     ret.push(Cell::new(LHS, ""));
     ret.push(Cell::new(RHS, "cc"));
+
+    if COLS() > 105 {
+        ret.push(Cell::new(RHS, " "));
+        ret.push(Cell::new(RHS, "corp"));
+    }
+
     ret
 }
 

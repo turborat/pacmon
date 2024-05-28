@@ -99,6 +99,10 @@ impl Resolver {
     pub fn resolve_cc(&self, addr:&IpAddr) -> String {
         self.ipdata.location(addr).country.to_string()
     }
+
+    pub fn resolve_comany(&self, addr:&IpAddr) -> String {
+        self.ipdata.company(addr).to_string()
+    }
 }
 
 fn read_services(services:&mut BTreeMap<u16, String>) {
