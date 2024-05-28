@@ -10,12 +10,11 @@ mod resolver;
 mod pacdat;
 mod pacstream;
 mod pcap;
-mod geoip;
-mod geoip_data;
+mod ipdata;
+mod ipdata_companies;
 
 fn main() {
     let args: HashSet<String> = env::args().collect();
-    println!("args: {:?}", args);
     if args.contains("-x") {
         special_processing()
     }

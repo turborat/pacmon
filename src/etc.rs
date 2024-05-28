@@ -47,7 +47,8 @@ pub fn log(msg: String) {
         if let Some(ref mut file) = &mut *LOGFILE.lock().unwrap() {
             writeln!(file, "{} {}", ts, msg).unwrap();
         } else {
-            writeln!(io::stderr(), "{} ?log:{}", ts, msg).unwrap();
+            // makes test output not nice
+            // writeln!(io::stderr(), "{} ?log:{}", ts, msg).unwrap();
         }
     }
 }
@@ -63,7 +64,6 @@ pub fn init_logging() {
         };
     }
 }
-
 
 pub fn fmt_duration(duration: Duration) -> String {
     let secs = duration.as_secs();
