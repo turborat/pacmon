@@ -43,6 +43,16 @@ pub fn run() {
     let pcap = Pcap::new();
     pcap.start(dev, interfaces);
 
+    fn try_redraw(mut streams:&mut BTreeMap<StreamKey, PacStream>, pcap:&Pcap, q_max: &mut u64, packets: &mut u64) {
+        if ui::should_redraw() {
+            let start = Instant::now();
+            ui::draw(&mut streams, *q_max, pcap.packets_dropped());
+            log(format!("redraW[{}:{}] took {:?}", q_max, packets, start.elapsed()));
+            *packets = 0;
+            *q_max = 0;
+        }
+    }
+
     loop {
         match pcap.rx().recv_timeout(Duration::from_millis(100)) {
             Ok(pac_dat) => {
@@ -56,24 +66,10 @@ pub fn run() {
                 packets += 1 ;
                 q_max = max(q_max, pcap.decrement_and_get_q_depth());
 
-                if ui::should_redraw() {
-                    let start = Instant::now();
-                    ui::draw(&mut streams, q_max, pcap.packets_dropped());
-                    log(format!("redraw[{}:{}] took {:?}", q_max, packets, start.elapsed()));
-                    packets = 0;
-                    q_max = 0;
-                }
+                try_redraw(&mut streams, &pcap, &mut q_max, &mut packets);
             }
-            #[allow(non_snake_case)]
-            Err(_recvTimeoutNonError) => {
-                // duplicate code / seemed simplest
-                if ui::should_redraw() {
-                    let start = Instant::now();
-                    ui::draw(&mut streams, q_max, pcap.packets_dropped());
-                    log(format!("redraW[{}:{}] took {:?}", q_max, packets, start.elapsed()));
-                    packets = 0;
-                    q_max = 0;
-                }
+            Err(_recv_timeout_non_error) => {
+                try_redraw(&mut streams, &pcap, &mut q_max, &mut packets);
             }
         }
     }
