@@ -59,7 +59,10 @@ pub fn set_panic_hook() {
         if msg.contains("Operation not permitted") {
             exit(-1, "Operation not permitted".to_string());
         }
-        exit(-2, msg);
+        if msg.contains("Terminal too narrow") {
+            exit(-2, "Terminal too narrow".to_string());
+        }
+        exit(-3, msg);
     }));
 }
 
@@ -142,6 +145,11 @@ pub fn draw(streams:&mut BTreeMap<StreamKey, PacStream>, q_depth:u64, dropped:u6
 }
 
 fn redraw() {
+    if COLS() != 0 && COLS() < 95 {
+        log(format!("ERROR: COLS = {}", COLS()));
+        panic!("Terminal too narrow!")
+    }
+
     let (
         pac_vec,
         widths,
@@ -259,7 +267,6 @@ fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, droppe
 
             let txt = if actual_width(&cell.txt) > *width {
                 let ret = trim(*width as usize, &cell.txt);
-                log(format!("{} => {}", "trimming!", ret));
                 ret
             } else {
                 cell.txt.to_string()
