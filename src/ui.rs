@@ -3,7 +3,7 @@ use std::backtrace::Backtrace;
 use std::cmp::{max, min, Ordering};
 use std::collections::{BTreeMap, HashMap};
 use std::ops::{DerefMut};
-use std::sync::atomic::{AtomicI64};
+use std::sync::atomic::{AtomicI32, AtomicI64};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use sync::atomic::Ordering::Relaxed;
@@ -44,7 +44,10 @@ static OPTS: Mutex<UIOpt> = Mutex::new(UIOpt {
 
 static CMDS:Mutex<Lazy<HashMap<char,fn(&mut UIOpt)>>> = Mutex::new(Lazy::new(||HashMap::new()));
 static HELP:Mutex<Lazy<HashMap<char,String>>> = Mutex::new(Lazy::new(||HashMap::new()));
-static LAST:AtomicI64 = AtomicI64::new(0);
+static START_TIME:AtomicI64 = AtomicI64::new(0);
+static LAST_TIME:AtomicI64 = AtomicI64::new(0);
+static LAST_COLS:AtomicI32 = AtomicI32::new(0);
+static REDRAW_PERIOD: i64 = 2000;
 
 //put this somewhere else//
 pub fn exit(code:i32, msg:String) {
@@ -80,6 +83,8 @@ pub fn start() {
     let _ = thread::Builder::new()
         .name("pacmon:key-stroker".to_string())
         .spawn(|| keystroke_handler());
+
+    START_TIME.store(millitime(), Relaxed);
 }
 
 fn register_cmd(c:char, desc: &str, cmd:fn(&mut UIOpt)) {
@@ -89,11 +94,24 @@ fn register_cmd(c:char, desc: &str, cmd:fn(&mut UIOpt)) {
 
 pub fn should_redraw() -> bool {
     if OPTS.lock().unwrap().pause {
-        false
+        return false
     }
-    else {
-        millitime() - LAST.fetch_sub(0, Relaxed) > 4000
+
+    let now = millitime();
+
+    if now - START_TIME.fetch_sub(0, Relaxed) < REDRAW_PERIOD {
+        return true;
     }
+
+    if now - LAST_TIME.fetch_sub(0, Relaxed) >= REDRAW_PERIOD {
+        return true;
+    }
+
+    if LAST_COLS.fetch_sub(0, Relaxed) != COLS() {
+        return true;
+    }
+
+    return false;
 }
 
 #[allow(dead_code)]
@@ -181,7 +199,8 @@ fn redraw() {
         render_normal(pac_vec, widths, q_depth, dropped, resolve,
                       interval);
     }
-    LAST.store(millitime(), Relaxed);
+    LAST_TIME.store(millitime(), Relaxed);
+    LAST_COLS.store(COLS() as i32, Relaxed);
 }
 
 fn render_help(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64,
