@@ -22,7 +22,7 @@ struct UIOpt {
     q_depth: u64,
     dropped: u64,
     pac_vec: Vec<PacStream>,
-    widths: Vec<i8>,
+    widths: Vec<i16>,
     resolve: bool,
     help: bool,
     pause: bool,
@@ -176,7 +176,7 @@ fn redraw() {
     LAST.store(millitime(), Relaxed);
 }
 
-fn render_help(pac_vec: Vec<PacStream>, widths: Vec<i8>, q_depth: u64, dropped: u64,
+fn render_help(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64,
                resolve: bool, last_draw: Option<Instant>, pause: bool, interval: Duration) {
     clear();
 
@@ -222,7 +222,7 @@ fn render_help(pac_vec: Vec<PacStream>, widths: Vec<i8>, q_depth: u64, dropped: 
     refresh();
 }
 
-fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i8>, q_depth: u64, dropped: u64, resolve: bool, interval: Duration) {
+fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64, resolve: bool, interval: Duration) {
     let nrows = min(pac_vec.len(), (LINES() - 2) as usize);
     let mut matrix: Vec<Vec<Cell>> = Vec::new();
 
@@ -239,8 +239,8 @@ fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i8>, q_depth: u64, dropped
     let mut widths = compute_widths(&matrix, &widths);
 
     // hack to resize //
-    let render_len = widths.iter().sum::<i8>();
-    let deficit = COLS() as i8 - render_len;
+    let render_len = widths.iter().sum::<i16>();
+    let deficit = COLS() as i16 - render_len;
     let comp_a = deficit / 2;
     let comp_b = deficit - comp_a;
     widths[4 /*local-host*/] += comp_a;
@@ -250,7 +250,7 @@ fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i8>, q_depth: u64, dropped
 
     for i in 0..matrix.len() {
         let row = matrix.get(i).unwrap();
-        let mut x = 0i8;
+        let mut x = 0i32;
         let y = i;
 
         for j in 0..row.len() {
@@ -267,7 +267,7 @@ fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i8>, q_depth: u64, dropped
 
             let offset = match cell.justify {
                 LHS => 0,
-                RHS => width - actual_width(&txt) as i8
+                RHS => width - actual_width(&txt)
             };
 
             if i == 0 {
@@ -277,9 +277,9 @@ fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i8>, q_depth: u64, dropped
                 attroff(A_BOLD());
             }
 
-            mvprintw(y as i32, (x + offset) as i32, &txt);
+            mvprintw(y as i32, x + offset as i32, &txt);
 
-            x += width;
+            x += *width as i32;
         }
     }
 
@@ -344,15 +344,15 @@ impl Cell {
     }
 }
 
-fn actual_width(txt:&str) -> i8 {
+fn actual_width(txt:&str) -> i16 {
     match txt.contains("%%") {
-        true => (txt.len() - 1) as i8,
-        false => txt.len() as i8
+        true => (txt.len() - 1) as i16,
+        false => txt.len() as i16
     }
 }
 
-fn compute_widths(matrix:&Vec<Vec<Cell>>, prev_widths:&Vec<i8>) -> Vec<i8> {
-    let mut ret:Vec<i8> = Vec::new();
+fn compute_widths(matrix:&Vec<Vec<Cell>>, prev_widths:&Vec<i16>) -> Vec<i16> {
+    let mut ret:Vec<i16> = Vec::new();
 
     for i in 0..matrix.len() {
         for j in 0..matrix.get(i).unwrap().len() {
@@ -563,7 +563,7 @@ mod tests {
     #[test]
     fn test_compute_widths() {
         let mut matrix:Vec<Vec<Cell>> = Vec::new();
-        assert_eq!(vec![] as Vec<i8>, compute_widths(&matrix, &vec![]));
+        assert_eq!(vec![] as Vec<i16>, compute_widths(&matrix, &vec![]));
         matrix.push(vec![Cell::new(RHS, "a"), Cell::new(RHS, "")]);
         assert_eq!(vec![1, 0], compute_widths(&matrix, &vec![]));
         matrix.push(vec![Cell::new(RHS, "aa"), Cell::new(RHS, "c")]);

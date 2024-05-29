@@ -101,6 +101,7 @@ pub fn parse_subnet_to_int(txt:&str) -> Result<u128,String> {
     Err(format!("Failed to parse [{}]", addr_str))
 }
 
+#[allow(dead_code)]
 pub fn addr(txt:&str) -> IpAddr {
     match txt.parse::<Ipv4Addr>() {
         Ok(addr) => V4(addr),

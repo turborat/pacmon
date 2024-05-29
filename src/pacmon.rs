@@ -1,5 +1,7 @@
 use std::cmp::max;
 use std::collections::{BTreeMap, BTreeSet};
+use std::io;
+use std::io::Write;
 use std::time::{Duration, Instant};
 
 use pcap::Device;
@@ -20,14 +22,18 @@ pub fn run() {
     let mut interfaces = BTreeSet::new();
     let dev = Device::lookup().unwrap().unwrap();
     for addr in &dev.addresses {
-        if addr.addr.is_ipv4() {
+        if addr.addr.is_ipv4() { // no ipv6?
             log(format!("snooping {:?} / {:?}", addr.addr, addr.netmask.unwrap()));
             interfaces.insert((addr.addr, addr.netmask.unwrap()));
         }
     }
 
-    let mut streams: BTreeMap<StreamKey, PacStream> = BTreeMap::new();
+    print!("Initializing...");
+    io::stdout().flush().unwrap();
     let mut resolver = Resolver::new();
+    println!("done.");
+
+    let mut streams: BTreeMap<StreamKey, PacStream> = BTreeMap::new();
     let mut packets = 0u64;
     let mut q_max = 0u64;
     let mut running = false;
@@ -50,11 +56,10 @@ pub fn run() {
                 packets += 1 ;
                 q_max = max(q_max, pcap.decrement_and_get_q_depth());
 
-
                 if ui::should_redraw() {
                     let start = Instant::now();
                     ui::draw(&mut streams, q_max, pcap.packets_dropped());
-                    log(format!("redraW[{}:{}] took {:?}", q_max, packets, start.elapsed()));
+                    log(format!("redraw[{}:{}] took {:?}", q_max, packets, start.elapsed()));
                     packets = 0;
                     q_max = 0;
                 }
