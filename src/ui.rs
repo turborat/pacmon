@@ -8,7 +8,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use sync::atomic::Ordering::Relaxed;
 
-use chrono::{Utc};
+use chrono::{Local, Utc};
 use ncurses::*;
 use once_cell::sync::Lazy;
 
@@ -265,7 +265,7 @@ fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, droppe
             let cell = row.get(j).unwrap();
             let width = widths.get(j).unwrap();
 
-            let txt = if actual_width(&cell.txt) > *width {
+            let txt = if false && actual_width(&cell.txt) > *width {
                 let ret = trim(*width as usize, &cell.txt);
                 ret
             } else {
@@ -297,7 +297,7 @@ fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, droppe
 
     pad(COLS() - footer.len() as i32);
 
-    mvprintw(LINES()-1, COLS()-8, &format!("{:?}", Utc::now().time()));
+    mvprintw(LINES()-1, COLS()-8, &format!("{:?}", Local::now().time()));
 
     attroff(A_REVERSE());
 
