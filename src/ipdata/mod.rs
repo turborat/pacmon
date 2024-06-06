@@ -11,8 +11,13 @@ use std::time::Instant;
 use crate::subnets::{addr_to_int};
 
 pub struct IpData {
-    companies: BTreeMap<u128, String>,
+    companies: BTreeMap<u128, Company>,
     locations: BTreeMap<u128, Location>,
+}
+
+pub struct Company {
+    pub bit_mask: u128,
+    pub name: String
 }
 
 pub struct Location {
@@ -23,7 +28,7 @@ pub struct Location {
 
 impl IpData {
     pub fn new() -> Self {
-        let mut companies: BTreeMap<u128,String> = BTreeMap::new();
+        let mut companies: BTreeMap<u128, Company> = BTreeMap::new();
         {
             let load = Instant::now();
             let ccc = companies::load();
@@ -31,7 +36,10 @@ impl IpData {
 
             let insert = Instant::now();
             for cc in ccc {
-                companies.insert(cc.0, cc.1.to_string());
+                companies.insert(cc.0, Company { 
+                  bit_mask: bit_mask(cc.1), 
+                  name: cc.2.to_string() 
+                });
             }
             log(format!("ipdata::insert::companies took {:?}", insert.elapsed()));
         }
@@ -56,9 +64,14 @@ impl IpData {
     pub fn company(&self, addr:&IpAddr) -> String {
         let t1 = Instant::now();
         let ip_int = addr_to_int(addr);
-        if let Some((&_, &ref v)) = self.companies.range(..=ip_int).next_back() {
+        if let Some((&subnet, &ref company)) = self.companies.range(..=ip_int).next_back() {
             log(format!("ipdata::lookup::company[{}] took {:?}", addr, t1.elapsed()));
-            v.to_string()
+            if subnet & company.bit_mask == ip_int & company.bit_mask {
+              company.name.to_string()
+            }
+            else {
+              ".".to_string()
+            }
         }
         else {
             panic!("Failed to determine company for {}/{}", addr, ip_int);
