@@ -374,10 +374,10 @@ fn keystroke_handler() {
                     let mut opts = OPTS.lock().unwrap();
                     cmd(opts.deref_mut());
                 }
-                redraw();
             }
             None => log(format!("getch({})", c))
         }
+        redraw();
     }
 }
 

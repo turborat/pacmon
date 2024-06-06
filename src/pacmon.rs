@@ -43,7 +43,7 @@ pub fn run() {
     ui::set_panic_hook();
 
     let pcap = Pcap::new();
-    pcap.start(dev, interfaces.clone());
+    pcap.start(dev);
 
     loop {
         match pcap.rx().recv_timeout(Duration::from_millis(100)) {

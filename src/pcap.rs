@@ -35,16 +35,16 @@ impl Pcap {
         }
     }
 
-    pub fn start(&self, dev:Device, interfaces:BTreeSet<(IpAddr, IpAddr)>) {
+    pub fn start(&self, dev:Device) {
         let dropped_ref = self.packets_dropped.clone();
         let q_depth_ref = self.q_depth.clone();
         let tx_ref = self.tx.clone();
         let _ = thread::Builder::new()
             .name("pacmon:pcap".to_string())
-            .spawn(move || Pcap::start_pcap(tx_ref, dev, interfaces, q_depth_ref, dropped_ref));
+            .spawn(move || Pcap::start_pcap(tx_ref, dev, q_depth_ref, dropped_ref));
     }
 
-    fn start_pcap(tx:Sender<PacDat>, dev:Device, interfaces: BTreeSet<(IpAddr, IpAddr)>, q_depth:Arc<AtomicU64>, dropped:Arc<AtomicU64>) {
+    fn start_pcap(tx:Sender<PacDat>, dev:Device, q_depth:Arc<AtomicU64>, dropped:Arc<AtomicU64>) {
         // note that we have immediate_mode=true in addition to non-zero buffer.
         // this seems to not konk out when we are eg making a fast transfer.
         let mut cap = Capture::from_device(dev).unwrap()
