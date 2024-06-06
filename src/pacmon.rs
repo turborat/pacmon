@@ -2,6 +2,7 @@ use std::cmp::max;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 use std::io::Write;
+use std::net::IpAddr;
 use std::time::{Duration, Instant};
 
 use pcap::Device;
@@ -35,42 +36,48 @@ pub fn run() {
 
     let mut streams: BTreeMap<StreamKey, PacStream> = BTreeMap::new();
     let mut packets = 0u64;
+    let mut last_packets_dropped = 0u64;
     let mut q_max = 0u64;
     let mut running = false;
 
     ui::set_panic_hook();
 
     let pcap = Pcap::new();
-    pcap.start(dev, interfaces);
-
-    fn try_redraw(mut streams:&mut BTreeMap<StreamKey, PacStream>, pcap:&Pcap, q_max: &mut u64, packets: &mut u64) {
-        if ui::should_redraw() {
-            let start = Instant::now();
-            ui::draw(&mut streams, *q_max, pcap.packets_dropped());
-            log(format!("redraW[{}:{}] took {:?}", q_max, packets, start.elapsed()));
-            *packets = 0;
-            *q_max = 0;
-        }
-    }
+    pcap.start(dev, interfaces.clone());
 
     loop {
         match pcap.rx().recv_timeout(Duration::from_millis(100)) {
-            Ok(pac_dat) => {
+            Ok(mut pac_dat) => {
                 // only start curses once we get a packet
                 if !running {
                     ui::start();
                     running = true;
                 }
 
-                tally(&pac_dat, &mut streams, &mut resolver);
+                tally(&mut pac_dat, &mut streams, &mut resolver, &interfaces);
                 packets += 1 ;
                 q_max = max(q_max, pcap.decrement_and_get_q_depth());
-
-                try_redraw(&mut streams, &pcap, &mut q_max, &mut packets);
             }
             Err(_recv_timeout_non_error) => {
-                try_redraw(&mut streams, &pcap, &mut q_max, &mut packets);
             }
+        }
+
+        if ui::should_redraw() {
+            let start = Instant::now();
+            let dropped = pcap.packets_dropped();
+            let dropped_curr = dropped - last_packets_dropped;
+
+            ui::draw(&mut streams, q_max.clone(), dropped_curr);
+
+            log(format!("redraw[qMax:{} packets:{}] took {:?}", q_max, packets, start.elapsed()));
+
+            if dropped_curr > 0 {
+                log(format!("err: dropped {} packets", dropped_curr));
+            }
+
+            packets = 0;
+            q_max = 0;
+            last_packets_dropped = dropped;
         }
     }
 
@@ -83,7 +90,19 @@ fn stream_for<'a>(pac_dat:&'a PacDat, streams:&'a mut BTreeMap<StreamKey, PacStr
     streams.entry(key).or_insert_with(|| PacStream::new(&pac_dat))
 }
 
-fn tally(pac_dat:&PacDat, streams:&mut BTreeMap<StreamKey, PacStream>, resolver:&mut Resolver) {
+fn tally(pac_dat: &mut PacDat, streams:&mut BTreeMap<StreamKey, PacStream>, resolver:&mut Resolver, interfaces:&BTreeSet<(IpAddr, IpAddr)>) {
+    match Pcap::get_dir_foreign(&pac_dat.src_addr.unwrap(), &pac_dat.dst_addr.unwrap(), interfaces) {
+        Some((dir, foreign, local_traffic)) => {
+            pac_dat.dir = Some(dir);
+            pac_dat.foreign = Some(foreign);
+            pac_dat.local_traffic = Some(local_traffic);
+        }
+        None => {
+            log("warn: failed to determine dir/foreign - ignoring packet".to_string());
+            return;
+        }
+    }
+
     let stream = stream_for(&pac_dat, streams);
     if stream.bytes() == 0 {
         stream.resolve(resolver);

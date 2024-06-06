@@ -43,11 +43,13 @@ static OPTS: Mutex<UIOpt> = Mutex::new(UIOpt {
 });
 
 static CMDS:Mutex<Lazy<HashMap<char,fn(&mut UIOpt)>>> = Mutex::new(Lazy::new(||HashMap::new()));
-static HELP:Mutex<Lazy<HashMap<char,String>>> = Mutex::new(Lazy::new(||HashMap::new()));
+static HELP:Mutex<Lazy<BTreeMap<char,String>>> = Mutex::new(Lazy::new(||BTreeMap::new()));
 static START_TIME:AtomicI64 = AtomicI64::new(0);
 static LAST_TIME:AtomicI64 = AtomicI64::new(0);
 static LAST_COLS:AtomicI32 = AtomicI32::new(0);
-static REDRAW_PERIOD: i64 = 2000;
+static REDRAW_PERIOD:AtomicI64 = AtomicI64::new(4000);
+static SORT_BY:AtomicI64 = AtomicI64::new(0);
+static CORP_THRESH: i32 = 105;
 
 //put this somewhere else//
 pub fn exit(code:i32, msg:String) {
@@ -79,6 +81,12 @@ pub fn start() {
     register_cmd('r', "resolve", |opt| opt.resolve = !opt.resolve );
     register_cmd(' ', "pause",   |opt| opt.pause = !opt.pause );
     register_cmd('t', "trim",    |opt| opt.widths = vec![] );
+    register_cmd('1', "1sec",    |_opt| REDRAW_PERIOD.store(2000, Relaxed));
+    register_cmd('2', "2sec",    |_opt| REDRAW_PERIOD.store(4000, Relaxed));
+    register_cmd('3', "3sec",    |_opt| REDRAW_PERIOD.store(6000, Relaxed));
+    register_cmd('4', "4sec",    |_opt| REDRAW_PERIOD.store(4000, Relaxed));
+    register_cmd('5', "5sec",    |_opt| REDRAW_PERIOD.store(10000, Relaxed));
+    register_cmd('s', "sort",    |_opt| { let _ = SORT_BY.fetch_update(Relaxed, Relaxed, |v| Some( if v == 0 { 1 } else { 0 })); } );
 
     let _ = thread::Builder::new()
         .name("pacmon:key-stroker".to_string())
@@ -98,12 +106,13 @@ pub fn should_redraw() -> bool {
     }
 
     let now = millitime();
+    let redraw_period = REDRAW_PERIOD.fetch_sub(0, Relaxed); 
 
-    if now - START_TIME.fetch_sub(0, Relaxed) < REDRAW_PERIOD {
-        return true;
+    if now - START_TIME.fetch_sub(0, Relaxed) < 5000 {
+        return now - LAST_TIME.fetch_sub(0, Relaxed) >= 100;
     }
 
-    if now - LAST_TIME.fetch_sub(0, Relaxed) >= REDRAW_PERIOD {
+    if now - LAST_TIME.fetch_sub(0, Relaxed) >= redraw_period {
         return true;
     }
 
@@ -114,7 +123,6 @@ pub fn should_redraw() -> bool {
     return false;
 }
 
-#[allow(dead_code)]
 fn sort_by_bytes(a:&PacStream, b:&PacStream) -> Ordering {
     let mut ret = b.bytes().cmp(&a.bytes());
     if ret.is_eq() {
@@ -123,7 +131,6 @@ fn sort_by_bytes(a:&PacStream, b:&PacStream) -> Ordering {
     ret
 }
 
-#[allow(dead_code)]
 fn sort_by_last_ts(a:&PacStream, b:&PacStream) -> Ordering {
     let mut ret = b.ts_last.timestamp().cmp(&a.ts_last.timestamp());
     if ret.is_eq() {
@@ -141,7 +148,13 @@ pub fn draw(streams:&mut BTreeMap<StreamKey, PacStream>, q_depth:u64, dropped:u6
     }
 
     let mut pac_vec: Vec<PacStream> = streams.values().cloned().collect();
-    pac_vec.sort_by(sort_by_last_ts);
+
+    if SORT_BY.fetch_sub(0, Relaxed) == 0 {
+        pac_vec.sort_by(sort_by_last_ts);
+    }
+    else {
+        pac_vec.sort_by(sort_by_bytes);
+    }
 
     for stream in streams.values_mut() {
         stream.reset_stats();
@@ -163,11 +176,6 @@ pub fn draw(streams:&mut BTreeMap<StreamKey, PacStream>, q_depth:u64, dropped:u6
 }
 
 fn redraw() {
-    if COLS() != 0 && COLS() < 95 {
-        log(format!("ERROR: COLS = {}", COLS()));
-        panic!("Terminal too narrow!")
-    }
-
     let (
         pac_vec,
         widths,
@@ -259,7 +267,7 @@ fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, droppe
     matrix.push(header(bytes_sent_last, bytes_recv_last, interval));
 
     for i in 0..nrows {
-        let row = render(&pac_vec[i], bytes_sent_last, bytes_recv_last, resolve, interval);
+        let row = render_row(&pac_vec[i], bytes_sent_last, bytes_recv_last, resolve, interval);
         matrix.push(row);
     }
 
@@ -268,10 +276,30 @@ fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, droppe
     // hack to resize //
     let render_len = widths.iter().sum::<i16>();
     let deficit = COLS() as i16 - render_len;
-    let comp_a = deficit / 2;
-    let comp_b = deficit - comp_a;
-    widths[4 /*local-host*/] += comp_a;
-    widths[8 /*remote-host*/] += comp_b;
+
+    if deficit < 10 || COLS() < CORP_THRESH {
+        // if we don't have enough space for corps just adjust our hosts
+        widths[4 /*local-host*/] += deficit / 2;
+        widths[8 /*remote-host*/] += deficit - deficit / 2;
+    }
+    else {
+        widths.push(1);
+        widths.push(deficit-1);
+        matrix.get_mut(0).unwrap().push(Cell::new(RHS, " "));
+        matrix.get_mut(0).unwrap().push(Cell::new(RHS, "corp"));
+
+        for i in 0..nrows {
+            let row = matrix.get_mut(i+1).unwrap();
+            let mut corp = pac_vec.get(i).unwrap().corp.to_string();
+
+            if corp.len() as i16 > deficit-1 {
+                corp = corp.chars().take(deficit as usize -1).collect();
+            }
+
+            row.push(Cell::new(RHS, ""));
+            row.push(Cell::new(RHS, &corp));
+        }
+    }
 
     clear();
 
@@ -284,16 +312,9 @@ fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, droppe
             let cell = row.get(j).unwrap();
             let width = widths.get(j).unwrap();
 
-            let txt = if false && actual_width(&cell.txt) > *width {
-                let ret = trim(*width as usize, &cell.txt);
-                ret
-            } else {
-                cell.txt.to_string()
-            };
-
             let offset = match cell.justify {
                 LHS => 0,
-                RHS => width - actual_width(&txt)
+                RHS => width - cell.width()
             };
 
             if i == 0 {
@@ -303,7 +324,11 @@ fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, droppe
                 attroff(A_BOLD());
             }
 
-            mvprintw(y as i32, x + offset as i32, &txt);
+            mvprintw(y as i32, x + offset as i32, &cell.txt);
+
+            if cell.width() > *width {
+                mvprintw(y as i32, x + offset as i32 - 1, " ");
+            }
 
             x += *width as i32;
         }
@@ -335,7 +360,9 @@ fn pad(n:i32) {
 }
 
 fn footer(q_depth:u64, dropped:u64) -> String {
-    format!("q:{} dropped:{}", q_depth, dropped)
+    let period = REDRAW_PERIOD.fetch_sub(0, Relaxed);
+    let sort = SORT_BY.fetch_sub(0, Relaxed);
+    format!("{}x{} q:{} dropped:{} period:{}ms sort:{}", LINES(), COLS(), q_depth, dropped, period, sort)
 }
 
 fn keystroke_handler() {
@@ -368,12 +395,16 @@ impl Cell {
     fn new(justify:Justify, txt:&str) -> Self {
         Cell { txt: txt.to_string(), justify }
     }
-}
 
-fn actual_width(txt:&str) -> i16 {
-    match txt.contains("%%") {
-        true => (txt.len() - 1) as i16,
-        false => txt.len() as i16
+    fn width(&self) -> i16 {
+        Cell::actual_width(&self.txt)
+    }
+
+    fn actual_width(txt:&str) -> i16 {
+        match txt.contains("%%") {
+            true => (txt.len() - 1) as i16,
+            false => txt.len() as i16
+        }
     }
 }
 
@@ -385,10 +416,10 @@ fn compute_widths(matrix:&Vec<Vec<Cell>>, prev_widths:&Vec<i16>) -> Vec<i16> {
             let cell = matrix.get(i).unwrap().get(j).unwrap();
             match ret.get(j) {
                 Some(len) => {
-                    ret[j] = max(actual_width(&cell.txt), *len);
+                    ret[j] = max(cell.width(), *len);
                 }
                 None => {
-                    ret.insert(j, actual_width(&cell.txt));
+                    ret.insert(j, cell.width());
                 }
             }
         }
@@ -403,14 +434,14 @@ fn compute_widths(matrix:&Vec<Vec<Cell>>, prev_widths:&Vec<i16>) -> Vec<i16> {
     ret
 }
 
-fn render(stream:&PacStream, total_bytes_sent: u64, total_bytes_recv: u64,
-          resolve: bool, elapsed: Duration) -> Vec<Cell> {
+fn render_row(stream:&PacStream, total_bytes_sent: u64, total_bytes_recv: u64,
+              resolve: bool, elapsed: Duration) -> Vec<Cell> {
     let mut ret:Vec<Cell> = Vec::new();
     ret.push(Cell::new(LHS, &str(stream.ip_number)));
     ret.push(Cell::new(LHS, " "));
     ret.push(Cell::new(RHS, &match stream.pid {
         Some(pid) => pid.to_string(),
-        None => "?".to_string()
+        None => "-".to_string()
     }));
     ret.push(Cell::new(LHS, " "));
 
@@ -465,12 +496,6 @@ fn render(stream:&PacStream, total_bytes_sent: u64, total_bytes_recv: u64,
     ret.push(Cell::new(RHS, &stream.age()));
     ret.push(Cell::new(RHS, " "));
     ret.push(Cell::new(RHS, &stream.cc));
-
-    if COLS() > 105 {
-        ret.push(Cell::new(RHS, " "));
-        ret.push(Cell::new(RHS, &stream.corp));
-    }
-
     ret
 }
 
@@ -478,7 +503,7 @@ fn header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: Duration) -> Ve
     let mut ret:Vec<Cell> = Vec::new();
     ret.push(Cell::new(LHS, ""));
     ret.push(Cell::new(LHS, ""));
-    ret.push(Cell::new(LHS, ""));
+    ret.push(Cell::new(RHS, "pid"));
     ret.push(Cell::new(LHS, ""));
     ret.push(Cell::new(RHS, "host|<proc>"));
     ret.push(Cell::new(LHS, ":"));
@@ -504,24 +529,7 @@ fn header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: Duration) -> Ve
     ret.push(Cell::new(RHS, "age"));
     ret.push(Cell::new(LHS, ""));
     ret.push(Cell::new(RHS, "cc"));
-
-    if COLS() > 105 {
-        ret.push(Cell::new(RHS, " "));
-        ret.push(Cell::new(RHS, "corp"));
-    }
-
     ret
-}
-
-fn trim(len:usize, txt:&str) -> String {
-    if txt.len() > len {
-        let start = txt.len() - len + 1;
-        let ret = "|".to_owned() + &txt[start..txt.len()];
-        ret
-    }
-    else {
-        txt.to_string()
-    }
 }
 
 fn trim_host(host:&String) -> String {
@@ -549,7 +557,7 @@ fn trim_host(host:&String) -> String {
 }
 
 fn pct_fmt(pct:f64) -> String {
-    if pct == 0.0 {
+    if pct == 0.0 || pct.is_nan() {
         "-".to_string()
     } else if pct < 0.001 {
         "~0%%".to_string()
@@ -577,14 +585,8 @@ fn speed(bytes: u64, elapsed: Duration) -> String {
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
-    use crate::ui::{speed, Cell, compute_widths, pct_fmt, trim, trim_host};
+    use crate::ui::{speed, Cell, compute_widths, pct_fmt, trim_host};
     use crate::ui::Justify::RHS;
-
-    #[test]
-    fn test_trim() {
-        assert_eq!("|ef", trim(3, "abcdef"));
-        assert_eq!("abc", trim(6, "abc"));
-    }
 
     #[test]
     fn test_compute_widths() {
@@ -610,6 +612,7 @@ mod tests {
     #[test]
     fn test_pct_fmt() {
         assert_eq!("-", pct_fmt(0.));
+        assert_eq!("-", pct_fmt(0f64/0f64));
         assert_eq!("~0%%", pct_fmt(0.0009));
         assert_eq!(".2%%", pct_fmt(0.002));
         assert_eq!("1%%", pct_fmt(0.01));

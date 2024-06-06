@@ -11,13 +11,10 @@ mod pacdat;
 mod pacstream;
 mod pcap;
 mod ipdata;
-mod ipdata_companies;
-mod ipdata_locations;
 
 fn main() {
     let args: HashSet<String> = env::args().collect();
     if args.contains("-x") {
-        eprintln!("special mode");
         special_processing()
     }
     else {
@@ -26,25 +23,26 @@ fn main() {
 }
 
 fn special_processing() {
-    let regex = Regex::new("(^[^,]+)(,.*)").unwrap();
+    let regex = Regex::new("(^[^,]+),(.*)").unwrap();
+    let mut status = 0;
     for line in io::stdin().lines() {
         let txt = line.unwrap();
         if let Some(captures) = regex.captures(&txt) {
-            let part1 = captures.get(1).unwrap().as_str();
-            let part2 = captures.get(2).unwrap().as_str();
-
-            match subnets::parse_subnet_to_int(part1) {
+            let addr = captures.get(1).unwrap().as_str();
+            let rest = captures.get(2).unwrap().as_str();
+            match subnets::parse_subnet_to_int(addr) {
                 Ok(subnet) => {
-                    println!("{} /*{}*/ {}", subnet, part1, part2);
+                    println!("{},{},{}", addr, subnet, rest);
                 }
                 Err(msg) => {
-                    // currently discard ip's that don't have a subnet
-                    // better way to handle??
-                    eprintln!("{}", msg)
+                    eprintln!("{} - dropping line", msg);
+                    status -= 1;
                 }
             }
         } else {
-            println!("{}", &txt);
+            eprintln!("Unknown input [{}] - dropping line", &txt);
+            status -= 1;
         }
     }
+    std::process::exit(status); 
 }

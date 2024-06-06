@@ -11,10 +11,11 @@ use etherparse::IpNumber;
 pub fn mag_fmt(value: u64) -> String {
     fn scale_num(value: u64, base: u64) -> String {
         let fp = value as f64 / base as f64;
-        if fp < 10.0 {
+        let rounded = (fp + 0.5f64) as u64;
+        if rounded < 10 {
             format!("{:.1}", fp)
         } else {
-            (fp as u64).to_string()
+            format!("{}", rounded)
         }
     }
 
@@ -95,9 +96,21 @@ mod tests {
         assert_eq!("1.0k", mag_fmt(1000));
         assert_eq!("1.2k", mag_fmt(1234));
         assert_eq!("1.3k", mag_fmt(1294));
-        assert_eq!("12m", mag_fmt(12944723));
+        assert_eq!("13m", mag_fmt(12944723));
         assert_eq!("1.3m", mag_fmt(1294472));
         assert_eq!("1.0g", mag_fmt(1_000_000_000));
+
+        assert_eq!("10b", mag_fmt(10));
+        assert_eq!("10k", mag_fmt(10_000));
+        assert_eq!("10m", mag_fmt(10_000_000));
+        assert_eq!("10g", mag_fmt(10_000_000_000));
+
+        assert_eq!("1.0b", mag_fmt(1));
+        assert_eq!("1.0k", mag_fmt(1000));
+        assert_eq!("1.0m", mag_fmt(1000_000));
+        assert_eq!("1.0g", mag_fmt(1000_000_000));
+
+        assert_eq!("10m", mag_fmt(9962084));
     }
 
     #[test]

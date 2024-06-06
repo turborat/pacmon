@@ -82,11 +82,14 @@ pub fn parse_subnet_to_int(txt:&str) -> Result<u128,String> {
 
     let parts:Vec<_> = txt.split("/").collect();
     if parts.len() != 2 {
-        return Err(format!("?!:{}", txt));
+        return Err(format!("Failed to parse [{}]", txt));
     }
 
     let addr_str = parts[0];
-    let mask_bits = parts[1].parse::<u8>().unwrap();
+    let mask_bits = match parts[1].parse::<u8>() { 
+        Ok(i) => i, 
+        Err(_) => return Err(format!("Failed to parse [{}]", addr_str))
+    }; 
 
     match addr_str.parse::<Ipv4Addr>() {
         Ok(addr) => return Ok(octets_to_int(&addr.octets()) & to_mask(mask_bits, 32)),

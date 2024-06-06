@@ -35,7 +35,7 @@ impl Pcap {
         }
     }
 
-    pub fn start(&self, dev:Device, interfaces: BTreeSet<(IpAddr, IpAddr)>) {
+    pub fn start(&self, dev:Device, interfaces:BTreeSet<(IpAddr, IpAddr)>) {
         let dropped_ref = self.packets_dropped.clone();
         let q_depth_ref = self.q_depth.clone();
         let tx_ref = self.tx.clone();
@@ -53,7 +53,7 @@ impl Pcap {
         loop {
             match cap.next_packet() {
                 Ok(packet) => {
-                    match Pcap::parse(packet, &interfaces) {
+                    match Pcap::parse(packet) {
                         Some(pac_dat) => {
                             match tx.send(pac_dat) {
                                 Ok(_) => q_depth.fetch_add(1, Ordering::Relaxed),
@@ -71,7 +71,6 @@ impl Pcap {
                     let all_dropped = stats.dropped + stats.if_dropped;
                     if all_dropped > 0 {
                         dropped.fetch_max(all_dropped as u64, Ordering::Relaxed);
-                        log(format!("dropped {} packets", all_dropped));
                     }
                 }
                 Err(err) => panic!("{}", err)
@@ -80,7 +79,7 @@ impl Pcap {
     }
 
     pub fn packets_dropped(&self) -> u64 {
-        self.packets_dropped.fetch_add(0, Ordering::Relaxed)
+        self.packets_dropped.fetch_sub(0, Ordering::Relaxed)
     }
 
     pub fn decrement_and_get_q_depth(&self) -> u64 {
@@ -91,7 +90,7 @@ impl Pcap {
         &self.rx
     }
 
-    fn parse(packet: Packet, interfaces: &BTreeSet<(IpAddr, IpAddr)>) -> Option<PacDat> {
+    fn parse(packet: Packet) -> Option<PacDat> {
         let ts = packet.header.ts;
         let dt = DateTime::from_timestamp(ts.tv_sec, (ts.tv_usec * 1000) as u32).unwrap();
 
@@ -135,23 +134,12 @@ impl Pcap {
             Err(err) => panic!("{}", err)
         }
 
-        match Pcap::get_dir_foreign(&pac_dat.src_addr.unwrap(), &pac_dat.dst_addr.unwrap(), interfaces) {
-            Some((dir, foreign, local_traffic)) => {
-                pac_dat.dir = Some(dir);
-                pac_dat.foreign = Some(foreign);
-                pac_dat.local_traffic = Some(local_traffic);
-                Some(pac_dat)
-            }
-            None => {
-                log("warn: failed to determine dir/foreign".to_string());
-                None
-            }
-        }
+        Some(pac_dat)
     }
 
     // do this later, off the pcap thread //
-    fn get_dir_foreign(src_addr:&IpAddr, dst_addr:&IpAddr, interfaces:&BTreeSet<(IpAddr,IpAddr)>)
-                       -> Option<(Dir, bool, bool)> {
+    pub(crate) fn get_dir_foreign(src_addr:&IpAddr, dst_addr:&IpAddr, interfaces:&BTreeSet<(IpAddr, IpAddr)>)
+                                  -> Option<(Dir, bool, bool)> {
         for interface in interfaces {
             let (if_addr, mask) = interface;
 

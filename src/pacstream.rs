@@ -110,16 +110,16 @@ impl PacStream {
 
     pub fn resolve(&mut self, resolver: &mut Resolver) {
         if self.foreign {
-            self.proc = "-".to_string();
+            self.proc = "this should never be displayed".to_string();
         }
         else {
             self.pid = resolver.resolve_pid(&self.ip_number, &self.local_addr, self.local_port);
             self.proc = match self.pid {
                 Some(pid) => match resolver.resolve_proc(pid) {
                     Some(proc) => proc,
-                    None => "??".to_string()
+                    None => "-".to_string()
                 },
-                None => "?".to_string()
+                None => "-".to_string()
             };
         };
         self.local_host = resolver.resolve_host(self.local_addr).to_string();
