@@ -1,2 +1,2 @@
 # pacmon
-A stream oriented packet monitor 
+The stream oriented packet monitor you always wanted
