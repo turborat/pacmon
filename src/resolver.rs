@@ -97,7 +97,10 @@ impl Resolver {
     }
 
     pub fn resolve_cc(&self, addr:&IpAddr) -> String {
-        self.ipdata.location(addr).country.to_string()
+        match self.ipdata.location(addr) { 
+          Some(location) => location.country.to_string(),
+          None => "?".to_string()
+        }
     }
 
     pub fn resolve_comany(&self, addr:&IpAddr) -> String {

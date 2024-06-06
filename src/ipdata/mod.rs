@@ -11,11 +11,12 @@ use std::time::Instant;
 use crate::subnets::{addr_to_int};
 
 pub struct IpData {
-    companies: BTreeMap<u128,String>,
-    locations: BTreeMap<u128,Location>,
+    companies: BTreeMap<u128, String>,
+    locations: BTreeMap<u128, Location>,
 }
 
 pub struct Location {
+    pub bit_mask: u128,
     pub city: String,
     pub country: String
 }
@@ -37,11 +38,11 @@ impl IpData {
 
         let loc_start = Instant::now();
         let mut locations: BTreeMap<u128, Location> = BTreeMap::new();
-        for ccc in [locations1::load(), locations2::load(), locations3::load(), locations4::load()]
+        for ccc in [locations1::load, locations2::load, locations3::load, locations4::load]
         {
-            for cc in ccc {
+            for cc in ccc() {
                 locations.insert(cc.0, Location {
-                    //mask: cc.1,
+                    bit_mask: bit_mask(cc.1),
                     country:cc.2.to_string(),
                     city:cc.3.to_string()
                 });
@@ -64,18 +65,32 @@ impl IpData {
         }
     }
 
-    pub fn location(&self, addr:&IpAddr) -> &Location {
+    pub fn location(&self, addr:&IpAddr) -> Option<&Location> {
         let t1 = Instant::now();
         let ip_int = addr_to_int(addr);
-        if let Some((&_, &ref v)) = self.locations.range(..=ip_int).next_back() {
+        if let Some((&subnet, &ref location)) = self.locations.range(..=ip_int).next_back() {
             log(format!("ipdata::lookup::location[{}] took {:?}", addr, t1.elapsed()));
-            v
+            if subnet & location.bit_mask == ip_int & location.bit_mask {
+              Some(location)
+            }
+            else {
+              None
+            }
         }
         else {
             panic!("Failed to determine location for {}/{}", addr, ip_int);
         }
     }
 }
+
+
+fn bit_mask(bits:u32) -> u128 {
+  if bits > 128 {
+    panic!("this should never happen");
+  }
+  ((1u128 << bits) - 1).wrapping_shl(128-bits)
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -96,8 +111,14 @@ mod tests {
     #[test]
     fn test_location() {
         let ipdata = IpData::new();
-        assert_eq!("US", ipdata.location(&addr("8.8.8.8")).country);
-        assert_eq!("Suitland", ipdata.location(&addr("8.8.11.8")).city);
+        assert_eq!("US", ipdata.location(&addr("8.8.8.8")).unwrap().country);
+        assert_eq!("Suitland", ipdata.location(&addr("8.8.11.8")).unwrap().city);
     }
 
+    #[test]
+    fn test_bit_mask() {
+      assert_eq!("0", format!("{:b}", bit_mask(0)));
+      assert_eq!("10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", format!("{:b}", bit_mask(1)));
+      assert_eq!("11111111111111111111111111111111000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", format!("{:b}", bit_mask(32)));
+    }
 }
