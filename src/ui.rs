@@ -19,9 +19,6 @@ use crate::ui::Justify::{LHS, RHS};
 
 #[derive(Debug)]
 struct UIOpt {
-    q_depth: u64,
-    dropped: u64,
-    pac_vec: Vec<PacStream>,
     widths: Vec<i16>,
     resolve: bool,
     help: bool,
@@ -31,9 +28,6 @@ struct UIOpt {
 }
 
 static OPTS: Mutex<UIOpt> = Mutex::new(UIOpt {
-    q_depth: 0,
-    dropped: 0,
-    pac_vec: vec![],
     widths: vec![],
     resolve: true,
     help: false,
@@ -162,9 +156,6 @@ pub fn draw(streams:&mut BTreeMap<StreamKey, PacStream>, q_depth:u64, dropped:u6
 
     {
         let mut opts = OPTS.lock().unwrap();
-        opts.pac_vec = pac_vec;
-        opts.q_depth = q_depth;
-        opts.dropped = dropped;
         opts.interval = match opts.prev_draw {
             None => Duration::from_secs(1),
             Some(prev) => prev.elapsed()
@@ -173,10 +164,7 @@ pub fn draw(streams:&mut BTreeMap<StreamKey, PacStream>, q_depth:u64, dropped:u6
     }
 
     let (
-        pac_vec,
         widths,
-        q_depth,
-        dropped,
         resolve,
         help,
         last_draw,
@@ -184,10 +172,7 @@ pub fn draw(streams:&mut BTreeMap<StreamKey, PacStream>, q_depth:u64, dropped:u6
         pause
     ) = {
         let opts = OPTS.lock().unwrap();
-        (opts.pac_vec.clone(),
-         opts.widths.clone(),
-         opts.q_depth,
-         opts.dropped,
+        (opts.widths.clone(),
          opts.resolve,
          opts.help,
          opts.prev_draw,
@@ -196,17 +181,17 @@ pub fn draw(streams:&mut BTreeMap<StreamKey, PacStream>, q_depth:u64, dropped:u6
     };
 
     if help {
-        render_help(pac_vec, widths, q_depth, dropped, resolve,
+        render_help(&pac_vec, widths, q_depth, dropped, resolve,
                     last_draw, pause, interval);
     }
     else {
-        render_normal(pac_vec, widths, q_depth, dropped, resolve,
+        render_normal(&pac_vec, widths, q_depth, dropped, resolve,
                       interval);
     }
     LAST_TIME.store(millitime(), Relaxed);
 }
 
-fn render_help(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64,
+fn render_help(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64,
                resolve: bool, last_draw: Option<Instant>, pause: bool, interval: Duration) {
     clear();
 
@@ -256,7 +241,7 @@ fn render_help(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped:
     refresh();
 }
 
-fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64, resolve: bool, interval: Duration) {
+fn render_normal(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64, resolve: bool, interval: Duration) {
     let nrows = min(pac_vec.len(), (LINES() - 2) as usize);
     let mut matrix: Vec<Vec<Cell>> = Vec::new();
 
