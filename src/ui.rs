@@ -287,10 +287,11 @@ fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, droppe
 
     if deficit < 10 || COLS() < CORP_THRESH {
         // if we don't have enough space for corps just adjust our hosts
-        widths[4 /*local-host*/] += deficit / 2;
-        widths[8 /*remote-host*/] += deficit - deficit / 2;
+        widths[0 /*local-host*/] += deficit / 2;
+        widths[4 /*remote-host*/] += deficit - deficit / 2;
     }
     else {
+        // else add corp //
         widths.push(1);
         widths.push(deficit-1);
         matrix.get_mut(0).unwrap().push(Cell::new(RHS, " "));
