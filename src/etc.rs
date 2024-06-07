@@ -4,7 +4,7 @@ use std::{fs};
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::sync::Mutex;
-use chrono::{Local, Utc};
+use chrono::{DateTime, Local, NaiveDateTime, Utc};
 
 use etherparse::IpNumber;
 
@@ -81,11 +81,19 @@ pub fn millitime() -> i64 {
     Utc::now().timestamp_millis()
 }
 
+pub fn fmt_millis(millis:i64) -> String {
+    let secs = millis / 1000;
+    let nanos = (millis % 1000) * 1_000_000;
+    let naive_dt = NaiveDateTime::from_timestamp(secs, nanos as u32);
+    let dt: DateTime<Utc> = DateTime::<Utc>::from_utc(naive_dt, Utc);
+    dt.format("%H:%M:%S%.3f").to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
 
-    use crate::etc::{fmt_duration, mag_fmt};
+    use crate::etc::{fmt_duration, fmt_millis, mag_fmt, millitime};
 
     #[test]
     fn test_mag_fmt() {
@@ -121,5 +129,12 @@ mod tests {
         assert_eq!("1h", fmt_duration(Duration::from_secs(100*60)));
         assert_eq!("5h", fmt_duration(Duration::from_secs(5*60*60)));
         assert_eq!("99h", fmt_duration(Duration::from_secs(99*60*60)));
+    }
+
+    #[test]
+    fn test_fmt_millis() {
+        let ms = 1717788559802;
+        println!("{}", ms);
+        assert_eq!("19:29:19.802", fmt_millis(ms));
     }
 }

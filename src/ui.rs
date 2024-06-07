@@ -5,27 +5,24 @@ use std::collections::{BTreeMap, HashMap};
 use std::ops::DerefMut;
 use std::sync::atomic::{AtomicBool, AtomicI64};
 use std::sync::Mutex;
-use std::time::Instant;
 use sync::atomic::Ordering::Relaxed;
 
 use chrono::{Local, Utc};
 use ncurses::*;
 use once_cell::sync::Lazy;
 
-use crate::etc::{log, mag_fmt, millitime, str};
+use crate::etc::{fmt_millis, log, mag_fmt, millitime, str};
 use crate::pacdat::StreamKey;
 use crate::pacstream::PacStream;
 use crate::ui::Justify::{LHS, RHS};
 
 #[derive(Debug)]
 struct UIOpt {
-    widths: Vec<i16>,
-    prev_draw: Option<Instant>
+    widths: Vec<i16>
 }
 
 static OPTS: Mutex<UIOpt> = Mutex::new(UIOpt {
-    widths: vec![],
-    prev_draw: None
+    widths: vec![]
 });
 
 static CMDS:Mutex<Lazy<HashMap<char,fn(&mut UIOpt)>>> = Mutex::new(Lazy::new(||HashMap::new()));
@@ -150,11 +147,6 @@ pub fn draw(streams:&mut BTreeMap<StreamKey, PacStream>, q_depth:u64, dropped:u6
         stream.reset_stats();
     }
 
-    {
-        let mut opts = OPTS.lock().unwrap();
-        opts.prev_draw = Some(Instant::now());
-    }
-
     let widths = { OPTS.lock().unwrap().widths.clone() };
     let interval = (now - LAST_TIME.fetch_add(0, Relaxed)) as u64;
 
@@ -188,7 +180,7 @@ fn render_help(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped
     let mut tt = vec![
         format!("     q depth: {:<8} pacs drop'd: {}", q_depth, dropped),
         format!("     resolve: {:<8} pause: {:?}", resolve.to_string(), pause),
-        format!("   last_draw: {}", LAST_TIME.fetch_sub(0, Relaxed)),
+        format!("   last_draw: {}", fmt_millis(LAST_TIME.fetch_sub(0, Relaxed))),
         format!("        recv: {:<8} sent:{:<8} interval: {:?}",
                 speed(bytes_recv_last, interval), speed(bytes_sent_last, interval), interval),
         format!("      widths: {:?}", widths),
