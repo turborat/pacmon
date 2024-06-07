@@ -443,11 +443,6 @@ fn render_row(stream:&PacStream, total_bytes_sent: u64, total_bytes_recv: u64,
     let mut ret:Vec<Cell> = Vec::new();
     ret.push(Cell::new(LHS, &str(stream.ip_number)));
     ret.push(Cell::new(LHS, " "));
-    ret.push(Cell::new(RHS, &match stream.pid {
-        Some(pid) => pid.to_string(),
-        None => "-".to_string()
-    }));
-    ret.push(Cell::new(LHS, " "));
 
     if stream.foreign {
         ret.push(Cell::new(RHS, &match resolve {
@@ -506,8 +501,6 @@ fn render_row(stream:&PacStream, total_bytes_sent: u64, total_bytes_recv: u64,
 fn header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: Duration) -> Vec<Cell> {
     let mut ret:Vec<Cell> = Vec::new();
     ret.push(Cell::new(LHS, ""));
-    ret.push(Cell::new(LHS, ""));
-    ret.push(Cell::new(RHS, "pid"));
     ret.push(Cell::new(LHS, ""));
     ret.push(Cell::new(RHS, "host|<proc>"));
     ret.push(Cell::new(LHS, ":"));
