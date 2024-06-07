@@ -34,8 +34,8 @@ pub fn mag_fmt(value: u64) -> String {
 
 pub fn str(ip_number: IpNumber) -> String {
     match ip_number {
-        IpNumber::UDP => "UDP".to_string(),
-        IpNumber::TCP => "TCP".to_string(),
+        IpNumber::UDP => "udp".to_string(),
+        IpNumber::TCP => "tcp".to_string(),
         _ => panic!("{:?}", ip_number)
     }
 }

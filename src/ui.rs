@@ -446,8 +446,6 @@ fn compute_widths(matrix:&Vec<Vec<Cell>>, prev_widths:&Vec<i16>) -> Vec<i16> {
 fn render_row(stream:&PacStream, total_bytes_sent: u64, total_bytes_recv: u64,
               resolve: bool, elapsed: Duration) -> Vec<Cell> {
     let mut ret:Vec<Cell> = Vec::new();
-    ret.push(Cell::new(LHS, &str(stream.ip_number)));
-    ret.push(Cell::new(LHS, " "));
 
     if stream.foreign {
         ret.push(Cell::new(RHS, &match resolve {
@@ -483,6 +481,9 @@ fn render_row(stream:&PacStream, total_bytes_sent: u64, total_bytes_recv: u64,
         false => stream.remote_port.to_string()
     }));
 
+    ret.push(Cell::new(LHS, " "));
+    ret.push(Cell::new(LHS, &str(stream.ip_number)));
+
     ret.push(Cell::new(RHS, " "));
     ret.push(Cell::new(RHS, &pct_fmt(stream.bytes_recv_last as f64 / total_bytes_recv as f64)));
     ret.push(Cell::new(RHS, " "));
@@ -505,8 +506,6 @@ fn render_row(stream:&PacStream, total_bytes_sent: u64, total_bytes_recv: u64,
 
 fn header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: Duration) -> Vec<Cell> {
     let mut ret:Vec<Cell> = Vec::new();
-    ret.push(Cell::new(LHS, ""));
-    ret.push(Cell::new(LHS, ""));
     ret.push(Cell::new(RHS, "host|<proc>"));
     ret.push(Cell::new(LHS, ":"));
     ret.push(Cell::new(LHS, "port"));
@@ -514,7 +513,9 @@ fn header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: Duration) -> Ve
     ret.push(Cell::new(RHS, "remote-host"));
     ret.push(Cell::new(LHS, ":"));
     ret.push(Cell::new(LHS, "port"));
-    ret.push(Cell::new(RHS, ""));
+    ret.push(Cell::new(RHS, " "));
+    ret.push(Cell::new(RHS, " "));
+    ret.push(Cell::new(RHS, " "));
     ret.push(Cell::new(RHS, "in"));
     ret.push(Cell::new(RHS, ":"));
 
