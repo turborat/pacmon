@@ -2,10 +2,10 @@ use std::{panic, sync, thread};
 use std::backtrace::Backtrace;
 use std::cmp::{max, min, Ordering};
 use std::collections::{BTreeMap, HashMap};
-use std::ops::{DerefMut};
+use std::ops::DerefMut;
 use std::sync::atomic::{AtomicBool, AtomicI64};
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use sync::atomic::Ordering::Relaxed;
 
 use chrono::{Local, Utc};
@@ -20,13 +20,11 @@ use crate::ui::Justify::{LHS, RHS};
 #[derive(Debug)]
 struct UIOpt {
     widths: Vec<i16>,
-    interval: Duration,
     prev_draw: Option<Instant>
 }
 
 static OPTS: Mutex<UIOpt> = Mutex::new(UIOpt {
     widths: vec![],
-    interval: Duration::from_nanos(1),
     prev_draw: None
 });
 
@@ -35,7 +33,7 @@ static HELP:Mutex<Lazy<BTreeMap<char,String>>> = Mutex::new(Lazy::new(||BTreeMap
 static START_TIME:AtomicI64 = AtomicI64::new(0);
 static LAST_TIME:AtomicI64 = AtomicI64::new(0);
 static REDRAW_REQUSTED:AtomicBool = AtomicBool::new(false);
-static RESOLVE:AtomicBool = AtomicBool::new(false);
+static RESOLVE:AtomicBool = AtomicBool::new(true);
 static HELP_MODE:AtomicBool = AtomicBool::new(false);
 static PAUSED:AtomicBool = AtomicBool::new(false);
 static REDRAW_PERIOD:AtomicI64 = AtomicI64::new(3000);
@@ -154,10 +152,6 @@ pub fn draw(streams:&mut BTreeMap<StreamKey, PacStream>, q_depth:u64, dropped:u6
 
     {
         let mut opts = OPTS.lock().unwrap();
-        opts.interval = match opts.prev_draw {
-            None => Duration::from_secs(1),
-            Some(prev) => prev.elapsed()
-        };
         opts.prev_draw = Some(Instant::now());
     }
 
@@ -570,8 +564,7 @@ fn speed(bytes: u64, elapsed: u64) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-    use crate::ui::{speed, Cell, compute_widths, pct_fmt, trim_host};
+    use crate::ui::{Cell, compute_widths, pct_fmt, speed, trim_host};
     use crate::ui::Justify::RHS;
 
     #[test]
