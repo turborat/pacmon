@@ -291,8 +291,8 @@ fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, droppe
 
     if deficit < 10 || COLS() < CORP_THRESH {
         // if we don't have enough space for corps just adjust our hosts
-        widths[0 /*local-host*/] += deficit / 2;
-        widths[4 /*remote-host*/] += deficit - deficit / 2;
+        widths[0 /*local-host*/] += deficit / 3;
+        widths[4 /*remote-host*/] += deficit - deficit / 3;
     }
     else {
         // else add corp //
@@ -307,6 +307,10 @@ fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, droppe
 
             if corp.len() as i16 > deficit-1 {
                 corp = corp.chars().take(deficit as usize -1).collect();
+            }
+
+            while corp.ends_with(" ") {
+                corp = corp.chars().take(1).collect();
             }
 
             row.push(Cell::new(RHS, ""));

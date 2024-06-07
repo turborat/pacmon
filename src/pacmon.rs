@@ -31,10 +31,10 @@ pub fn run(args: HashSet<String>) {
         }
     }
 
-    print!("loading..");
+    print!("+ipdata..");
     io::stdout().flush().unwrap();
     let mut resolver = Resolver::new();
-    println!("..done");
+    println!("done.\n~pcap..");
 
     let mut streams: BTreeMap<StreamKey, PacStream> = BTreeMap::new();
     let mut packets = 0u64;
