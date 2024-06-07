@@ -227,7 +227,7 @@ fn render_help(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped:
     let bytes_sent_last: u64 = pac_vec.iter().map(|s| s.bytes_sent_last).sum();
     let bytes_recv_last: u64 = pac_vec.iter().map(|s| s.bytes_recv_last).sum();
 
-    let tt = vec![
+    let mut tt = vec![
         format!("     q depth: {:<8} pacs drop'd: {}", q_depth, dropped),
         format!("     resolve: {:<8} pause: {:?}", resolve.to_string(), pause),
         format!("   last_draw: {}", match last_draw {
@@ -243,6 +243,10 @@ fn render_help(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped:
             .join("  ")
         )
     ];
+
+    for mut t in &mut tt {
+        t.truncate(COLS() as usize - 2);
+    }
 
     let width = tt.iter().max_by_key(|s| s.len()).unwrap().len();
     let x_offset = (COLS() - width as i32) / 2;
