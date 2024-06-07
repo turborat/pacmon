@@ -81,11 +81,15 @@ pub fn start() {
     register_cmd('r', "resolve", |opt| opt.resolve = !opt.resolve );
     register_cmd(' ', "pause",   |opt| opt.pause = !opt.pause );
     register_cmd('t', "trim",    |opt| opt.widths = vec![] );
-    register_cmd('1', "1sec",    |_opt| REDRAW_PERIOD.store(2000, Relaxed));
-    register_cmd('2', "2sec",    |_opt| REDRAW_PERIOD.store(4000, Relaxed));
-    register_cmd('3', "3sec",    |_opt| REDRAW_PERIOD.store(6000, Relaxed));
+    register_cmd('1', "1sec",    |_opt| REDRAW_PERIOD.store(1000, Relaxed));
+    register_cmd('2', "2sec",    |_opt| REDRAW_PERIOD.store(2000, Relaxed));
+    register_cmd('3', "3sec",    |_opt| REDRAW_PERIOD.store(3000, Relaxed));
     register_cmd('4', "4sec",    |_opt| REDRAW_PERIOD.store(4000, Relaxed));
-    register_cmd('5', "5sec",    |_opt| REDRAW_PERIOD.store(10000, Relaxed));
+    register_cmd('5', "5sec",    |_opt| REDRAW_PERIOD.store(5000, Relaxed));
+    register_cmd('6', "6sec",    |_opt| REDRAW_PERIOD.store(6000, Relaxed));
+    register_cmd('7', "7sec",    |_opt| REDRAW_PERIOD.store(7000, Relaxed));
+    register_cmd('8', "8sec",    |_opt| REDRAW_PERIOD.store(8000, Relaxed));
+    register_cmd('9', "9sec",    |_opt| REDRAW_PERIOD.store(9000, Relaxed));
     register_cmd('s', "sort",    |_opt| { let _ = SORT_BY.fetch_update(Relaxed, Relaxed, |v| Some( if v == 0 { 1 } else { 0 })); } );
 
     let _ = thread::Builder::new()
