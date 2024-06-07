@@ -3,7 +3,7 @@ use std::backtrace::Backtrace;
 use std::cmp::{max, min, Ordering};
 use std::collections::{BTreeMap, HashMap};
 use std::ops::{DerefMut};
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64};
+use std::sync::atomic::{AtomicBool, AtomicI64};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use sync::atomic::Ordering::Relaxed;
@@ -46,7 +46,6 @@ static CMDS:Mutex<Lazy<HashMap<char,fn(&mut UIOpt)>>> = Mutex::new(Lazy::new(||H
 static HELP:Mutex<Lazy<BTreeMap<char,String>>> = Mutex::new(Lazy::new(||BTreeMap::new()));
 static START_TIME:AtomicI64 = AtomicI64::new(0);
 static LAST_TIME:AtomicI64 = AtomicI64::new(0);
-static LAST_COLS:AtomicI32 = AtomicI32::new(0);
 static REDRAW_REQUSTED:AtomicBool = AtomicBool::new(false);
 static REDRAW_PERIOD:AtomicI64 = AtomicI64::new(3000);
 static SORT_BY:AtomicI64 = AtomicI64::new(0);
@@ -125,10 +124,6 @@ pub fn should_redraw() -> bool {
         return true;
     }
 
-    if LAST_COLS.fetch_sub(0, Relaxed) != COLS() {
-        return true;
-    }
-
     return false;
 }
 
@@ -177,10 +172,6 @@ pub fn draw(streams:&mut BTreeMap<StreamKey, PacStream>, q_depth:u64, dropped:u6
         opts.prev_draw = Some(Instant::now());
     }
 
-    redraw();
-}
-
-fn redraw() {
     let (
         pac_vec,
         widths,
@@ -213,7 +204,6 @@ fn redraw() {
                       interval);
     }
     LAST_TIME.store(millitime(), Relaxed);
-    LAST_COLS.store(COLS() as i32, Relaxed);
 }
 
 fn render_help(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64,
@@ -399,7 +389,6 @@ fn keystroke_handler() {
             None => log(format!("getch({})", c))
         }
         REDRAW_REQUSTED.store(true, Relaxed);
-        redraw();
     }
 }
 
