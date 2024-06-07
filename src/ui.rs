@@ -374,8 +374,12 @@ fn pad(n:i32) {
 
 fn footer(q_depth:u64, dropped:u64) -> String {
     let period = REDRAW_PERIOD.fetch_sub(0, Relaxed);
-    let sort = SORT_BY.fetch_sub(0, Relaxed);
-    format!("{}x{} q:{} dropped:{} period:{}ms sort:{}", LINES(), COLS(), q_depth, dropped, period, sort)
+    let sort = match SORT_BY.fetch_sub(0, Relaxed) {
+        0 => "time",
+        1 => "total",
+        _ => panic!("dead")
+    };
+    format!("{}x{} q:{} drop'd:{} refresh:{}ms sort:{}", LINES(), COLS(), q_depth, dropped, period, sort)
 }
 
 fn keystroke_handler() {
