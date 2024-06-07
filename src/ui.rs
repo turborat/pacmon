@@ -20,18 +20,12 @@ use crate::ui::Justify::{LHS, RHS};
 #[derive(Debug)]
 struct UIOpt {
     widths: Vec<i16>,
-    resolve: bool,
-    help: bool,
-    pause: bool,
     interval: Duration,
     prev_draw: Option<Instant>
 }
 
 static OPTS: Mutex<UIOpt> = Mutex::new(UIOpt {
     widths: vec![],
-    resolve: true,
-    help: false,
-    pause: false,
     interval: Duration::from_nanos(1),
     prev_draw: None
 });
@@ -41,6 +35,9 @@ static HELP:Mutex<Lazy<BTreeMap<char,String>>> = Mutex::new(Lazy::new(||BTreeMap
 static START_TIME:AtomicI64 = AtomicI64::new(0);
 static LAST_TIME:AtomicI64 = AtomicI64::new(0);
 static REDRAW_REQUSTED:AtomicBool = AtomicBool::new(false);
+static RESOLVE:AtomicBool = AtomicBool::new(false);
+static HELP_MODE:AtomicBool = AtomicBool::new(false);
+static PAUSED:AtomicBool = AtomicBool::new(false);
 static REDRAW_PERIOD:AtomicI64 = AtomicI64::new(3000);
 static SORT_BY:AtomicI64 = AtomicI64::new(0);
 static CORP_THRESH: i32 = 105;
@@ -70,9 +67,9 @@ pub fn start() {
     refresh();
 
     register_cmd('q', "quit",    |_opt| exit(0, "bye".to_string()));
-    register_cmd('h', "help",    |opt| opt.help = !opt.help );
-    register_cmd('r', "resolve", |opt| opt.resolve = !opt.resolve );
-    register_cmd(' ', "pause",   |opt| opt.pause = !opt.pause );
+    register_cmd('h', "help",    |_opt| { HELP_MODE.fetch_xor(true, Relaxed); } );
+    register_cmd('r', "resolve", |_opt| { RESOLVE.fetch_xor(true, Relaxed); } );
+    register_cmd(' ', "pause",   |_opt| { PAUSED.fetch_xor(true, Relaxed); } );
     register_cmd('t', "trim",    |opt| opt.widths = vec![] );
     register_cmd('s', "sort",    |_opt| { let _ = SORT_BY.fetch_update(Relaxed, Relaxed, |v| Some( if v == 0 { 1 } else { 0 })); } );
     register_cmd('1', "1s",    |_opt| REDRAW_PERIOD.store(1000, Relaxed));
@@ -84,7 +81,7 @@ pub fn start() {
     register_cmd('7', "7s",    |_opt| REDRAW_PERIOD.store(7000, Relaxed));
     register_cmd('8', "8s",    |_opt| REDRAW_PERIOD.store(8000, Relaxed));
     register_cmd('9', "9s",    |_opt| REDRAW_PERIOD.store(9000, Relaxed));
-    register_cmd('0', "<1s",    |_opt| REDRAW_PERIOD.store(300, Relaxed));
+    register_cmd('0', "<1s",    |_opt| REDRAW_PERIOD.store(250, Relaxed));
 
     let _ = thread::Builder::new()
         .name("pacmon:key-stroker".to_string())
@@ -103,7 +100,7 @@ pub fn should_redraw() -> bool {
         return true;
     }
 
-    if OPTS.lock().unwrap().pause {
+    if PAUSED.fetch_and(true, Relaxed) {
         return false
     }
 
@@ -165,34 +162,26 @@ pub fn draw(streams:&mut BTreeMap<StreamKey, PacStream>, q_depth:u64, dropped:u6
 
     let (
         widths,
-        resolve,
-        help,
         last_draw,
-        interval,
-        pause
+        interval
     ) = {
         let opts = OPTS.lock().unwrap();
         (opts.widths.clone(),
-         opts.resolve,
-         opts.help,
          opts.prev_draw,
-         opts.interval,
-         opts.pause)
+         opts.interval)
     };
 
-    if help {
-        render_help(&pac_vec, widths, q_depth, dropped, resolve,
-                    last_draw, pause, interval);
+    if HELP_MODE.fetch_and(true, Relaxed) {
+        render_help(&pac_vec, widths, q_depth, dropped, last_draw, interval);
     }
     else {
-        render_normal(&pac_vec, widths, q_depth, dropped, resolve,
-                      interval);
+        render_normal(&pac_vec, widths, q_depth, dropped, interval);
     }
+
     LAST_TIME.store(millitime(), Relaxed);
 }
 
-fn render_help(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64,
-               resolve: bool, last_draw: Option<Instant>, pause: bool, interval: Duration) {
+fn render_help(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64, last_draw: Option<Instant>, interval: Duration) {
     clear();
 
     mvaddch(0, 0, ACS_ULCORNER());
@@ -206,6 +195,8 @@ fn render_help(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped
 
     let bytes_sent_last: u64 = pac_vec.iter().map(|s| s.bytes_sent_last).sum();
     let bytes_recv_last: u64 = pac_vec.iter().map(|s| s.bytes_recv_last).sum();
+    let resolve = RESOLVE.fetch_and(true, Relaxed);
+    let pause = PAUSED.fetch_and(true, Relaxed);
 
     let mut tt = vec![
         format!("     q depth: {:<8} pacs drop'd: {}", q_depth, dropped),
@@ -241,13 +232,14 @@ fn render_help(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped
     refresh();
 }
 
-fn render_normal(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64, resolve: bool, interval: Duration) {
+fn render_normal(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64, interval: Duration) {
     let nrows = min(pac_vec.len(), (LINES() - 2) as usize);
     let mut matrix: Vec<Vec<Cell>> = Vec::new();
 
     let bytes_sent_last: u64 = pac_vec.iter().map(|s| s.bytes_sent_last).sum();
     let bytes_recv_last: u64 = pac_vec.iter().map(|s| s.bytes_recv_last).sum();
 
+    let resolve = RESOLVE.fetch_and(true, Relaxed);
     matrix.push(header(bytes_sent_last, bytes_recv_last, interval, resolve));
 
     for i in 0..nrows {
@@ -356,7 +348,7 @@ fn footer(q_depth:u64, dropped:u64) -> String {
         1 => "total",
         _ => panic!("dead")
     };
-    let paused = OPTS.lock().unwrap().pause;
+    let paused = PAUSED.fetch_and(true, Relaxed);
     format!("{}x{} q:{} drop'd:{} refresh:{}ms sort:{} pause:{}",
             LINES(), COLS(), q_depth, dropped, period, sort, paused)
 }
