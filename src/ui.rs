@@ -3,7 +3,7 @@ use std::backtrace::Backtrace;
 use std::cmp::{max, min, Ordering};
 use std::collections::{BTreeMap, HashMap};
 use std::ops::{DerefMut};
-use std::sync::atomic::{AtomicI32, AtomicI64};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use sync::atomic::Ordering::Relaxed;
@@ -47,11 +47,11 @@ static HELP:Mutex<Lazy<BTreeMap<char,String>>> = Mutex::new(Lazy::new(||BTreeMap
 static START_TIME:AtomicI64 = AtomicI64::new(0);
 static LAST_TIME:AtomicI64 = AtomicI64::new(0);
 static LAST_COLS:AtomicI32 = AtomicI32::new(0);
+static REDRAW_REQUSTED:AtomicBool = AtomicBool::new(false);
 static REDRAW_PERIOD:AtomicI64 = AtomicI64::new(4000);
 static SORT_BY:AtomicI64 = AtomicI64::new(0);
 static CORP_THRESH: i32 = 105;
 
-//put this somewhere else//
 pub fn exit(code:i32, msg:String) {
     endwin();
     eprintln!("{}", msg);
@@ -101,6 +101,10 @@ fn register_cmd(c:char, desc: &str, cmd:fn(&mut UIOpt)) {
 }
 
 pub fn should_redraw() -> bool {
+    if REDRAW_REQUSTED.swap(false, Relaxed) {
+        return true;
+    }
+
     if OPTS.lock().unwrap().pause {
         return false
     }
@@ -244,7 +248,7 @@ fn render_help(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped:
         )
     ];
 
-    for mut t in &mut tt {
+    for t in &mut tt {
         t.truncate(COLS() as usize - 2);
     }
 
@@ -381,6 +385,7 @@ fn keystroke_handler() {
             }
             None => log(format!("getch({})", c))
         }
+        REDRAW_REQUSTED.store(true, Relaxed);
         redraw();
     }
 }
