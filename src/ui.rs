@@ -81,6 +81,7 @@ pub fn start() {
     register_cmd('r', "resolve", |opt| opt.resolve = !opt.resolve );
     register_cmd(' ', "pause",   |opt| opt.pause = !opt.pause );
     register_cmd('t', "trim",    |opt| opt.widths = vec![] );
+    register_cmd('s', "sort",    |_opt| { let _ = SORT_BY.fetch_update(Relaxed, Relaxed, |v| Some( if v == 0 { 1 } else { 0 })); } );
     register_cmd('1', "1s",    |_opt| REDRAW_PERIOD.store(1000, Relaxed));
     register_cmd('2', "2s",    |_opt| REDRAW_PERIOD.store(2000, Relaxed));
     register_cmd('3', "3s",    |_opt| REDRAW_PERIOD.store(3000, Relaxed));
@@ -90,8 +91,7 @@ pub fn start() {
     register_cmd('7', "7s",    |_opt| REDRAW_PERIOD.store(7000, Relaxed));
     register_cmd('8', "8s",    |_opt| REDRAW_PERIOD.store(8000, Relaxed));
     register_cmd('9', "9s",    |_opt| REDRAW_PERIOD.store(9000, Relaxed));
-    register_cmd('0', "100ms",    |_opt| REDRAW_PERIOD.store(100, Relaxed));
-    register_cmd('s', "sort",    |_opt| { let _ = SORT_BY.fetch_update(Relaxed, Relaxed, |v| Some( if v == 0 { 1 } else { 0 })); } );
+    register_cmd('0', "<1s",    |_opt| REDRAW_PERIOD.store(300, Relaxed));
 
     let _ = thread::Builder::new()
         .name("pacmon:key-stroker".to_string())
@@ -385,7 +385,9 @@ fn footer(q_depth:u64, dropped:u64) -> String {
         1 => "total",
         _ => panic!("dead")
     };
-    format!("{}x{} q:{} drop'd:{} refresh:{}ms sort:{}", LINES(), COLS(), q_depth, dropped, period, sort)
+    let paused = OPTS.lock().unwrap().pause;
+    format!("{}x{} q:{} drop'd:{} refresh:{}ms sort:{} pause:{}",
+            LINES(), COLS(), q_depth, dropped, period, sort, paused)
 }
 
 fn keystroke_handler() {
