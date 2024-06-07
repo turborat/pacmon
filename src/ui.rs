@@ -155,19 +155,11 @@ pub fn draw(streams:&mut BTreeMap<StreamKey, PacStream>, q_depth:u64, dropped:u6
         opts.prev_draw = Some(Instant::now());
     }
 
-    let (
-        widths,
-        last_draw,
-    ) = {
-        let opts = OPTS.lock().unwrap();
-        (opts.widths.clone(),
-         opts.prev_draw)
-    };
-
+    let widths = { OPTS.lock().unwrap().widths.clone() };
     let interval = (now - LAST_TIME.fetch_add(0, Relaxed)) as u64;
 
     if HELP_MODE.fetch_and(true, Relaxed) {
-        render_help(&pac_vec, widths, q_depth, dropped, last_draw, interval);
+        render_help(&pac_vec, widths, q_depth, dropped, interval);
     }
     else {
         render_normal(&pac_vec, widths, q_depth, dropped, interval);
@@ -176,7 +168,7 @@ pub fn draw(streams:&mut BTreeMap<StreamKey, PacStream>, q_depth:u64, dropped:u6
     LAST_TIME.store(now, Relaxed);
 }
 
-fn render_help(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64, last_draw: Option<Instant>, interval: u64) {
+fn render_help(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64, interval: u64) {
     clear();
 
     mvaddch(0, 0, ACS_ULCORNER());
@@ -196,10 +188,7 @@ fn render_help(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped
     let mut tt = vec![
         format!("     q depth: {:<8} pacs drop'd: {}", q_depth, dropped),
         format!("     resolve: {:<8} pause: {:?}", resolve.to_string(), pause),
-        format!("   last_draw: {}", match last_draw {
-            Some(ts) => format!("{:?}", ts),
-            None => "?".to_string(),
-        }),
+        format!("   last_draw: {}", LAST_TIME.fetch_sub(0, Relaxed)),
         format!("        recv: {:<8} sent:{:<8} interval: {:?}",
                 speed(bytes_recv_last, interval), speed(bytes_sent_last, interval), interval),
         format!("      widths: {:?}", widths),
