@@ -48,7 +48,7 @@ static START_TIME:AtomicI64 = AtomicI64::new(0);
 static LAST_TIME:AtomicI64 = AtomicI64::new(0);
 static LAST_COLS:AtomicI32 = AtomicI32::new(0);
 static REDRAW_REQUSTED:AtomicBool = AtomicBool::new(false);
-static REDRAW_PERIOD:AtomicI64 = AtomicI64::new(4000);
+static REDRAW_PERIOD:AtomicI64 = AtomicI64::new(3000);
 static SORT_BY:AtomicI64 = AtomicI64::new(0);
 static CORP_THRESH: i32 = 105;
 
@@ -81,15 +81,16 @@ pub fn start() {
     register_cmd('r', "resolve", |opt| opt.resolve = !opt.resolve );
     register_cmd(' ', "pause",   |opt| opt.pause = !opt.pause );
     register_cmd('t', "trim",    |opt| opt.widths = vec![] );
-    register_cmd('1', "1sec",    |_opt| REDRAW_PERIOD.store(1000, Relaxed));
-    register_cmd('2', "2sec",    |_opt| REDRAW_PERIOD.store(2000, Relaxed));
-    register_cmd('3', "3sec",    |_opt| REDRAW_PERIOD.store(3000, Relaxed));
-    register_cmd('4', "4sec",    |_opt| REDRAW_PERIOD.store(4000, Relaxed));
-    register_cmd('5', "5sec",    |_opt| REDRAW_PERIOD.store(5000, Relaxed));
-    register_cmd('6', "6sec",    |_opt| REDRAW_PERIOD.store(6000, Relaxed));
-    register_cmd('7', "7sec",    |_opt| REDRAW_PERIOD.store(7000, Relaxed));
-    register_cmd('8', "8sec",    |_opt| REDRAW_PERIOD.store(8000, Relaxed));
-    register_cmd('9', "9sec",    |_opt| REDRAW_PERIOD.store(9000, Relaxed));
+    register_cmd('1', "1s",    |_opt| REDRAW_PERIOD.store(1000, Relaxed));
+    register_cmd('2', "2s",    |_opt| REDRAW_PERIOD.store(2000, Relaxed));
+    register_cmd('3', "3s",    |_opt| REDRAW_PERIOD.store(3000, Relaxed));
+    register_cmd('4', "4s",    |_opt| REDRAW_PERIOD.store(4000, Relaxed));
+    register_cmd('5', "5s",    |_opt| REDRAW_PERIOD.store(5000, Relaxed));
+    register_cmd('6', "6s",    |_opt| REDRAW_PERIOD.store(6000, Relaxed));
+    register_cmd('7', "7s",    |_opt| REDRAW_PERIOD.store(7000, Relaxed));
+    register_cmd('8', "8s",    |_opt| REDRAW_PERIOD.store(8000, Relaxed));
+    register_cmd('9', "9s",    |_opt| REDRAW_PERIOD.store(9000, Relaxed));
+    register_cmd('0', "100ms",    |_opt| REDRAW_PERIOD.store(100, Relaxed));
     register_cmd('s', "sort",    |_opt| { let _ = SORT_BY.fetch_update(Relaxed, Relaxed, |v| Some( if v == 0 { 1 } else { 0 })); } );
 
     let _ = thread::Builder::new()
@@ -291,8 +292,9 @@ fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, droppe
 
     if deficit < 10 || COLS() < CORP_THRESH {
         // if we don't have enough space for corps just adjust our hosts
-        widths[0 /*local-host*/] += deficit / 3;
-        widths[4 /*remote-host*/] += deficit - deficit / 3;
+        widths[2 /*local-host*/] += deficit / 3;
+        widths[6 /*remote-host*/] += deficit - deficit / 3;
+        // this is soooo error prone
     }
     else {
         // else add corp //
@@ -310,7 +312,7 @@ fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, droppe
             }
 
             while corp.ends_with(" ") {
-                corp = corp.chars().take(1).collect();
+                corp = corp.chars().take(corp.len() - 1).collect();
             }
 
             row.push(Cell::new(RHS, ""));
@@ -460,6 +462,9 @@ fn render_row(stream:&PacStream, total_bytes_sent: u64, total_bytes_recv: u64,
               resolve: bool, elapsed: Duration) -> Vec<Cell> {
     let mut ret:Vec<Cell> = Vec::new();
 
+    ret.push(Cell::new(LHS, &str(stream.ip_number)));
+    ret.push(Cell::new(LHS, " "));
+
     if stream.foreign {
         ret.push(Cell::new(RHS, &match resolve {
             true => stream.local_host.to_string(),
@@ -494,9 +499,6 @@ fn render_row(stream:&PacStream, total_bytes_sent: u64, total_bytes_recv: u64,
         false => stream.remote_port.to_string()
     }));
 
-    ret.push(Cell::new(LHS, " "));
-    ret.push(Cell::new(LHS, &str(stream.ip_number)));
-
     ret.push(Cell::new(RHS, " "));
     ret.push(Cell::new(RHS, &pct_fmt(stream.bytes_recv_last as f64 / total_bytes_recv as f64)));
     ret.push(Cell::new(RHS, " "));
@@ -519,6 +521,8 @@ fn render_row(stream:&PacStream, total_bytes_sent: u64, total_bytes_recv: u64,
 
 fn header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: Duration) -> Vec<Cell> {
     let mut ret:Vec<Cell> = Vec::new();
+    ret.push(Cell::new(RHS, " "));
+    ret.push(Cell::new(RHS, " "));
     ret.push(Cell::new(RHS, "host|<proc>"));
     ret.push(Cell::new(LHS, ":"));
     ret.push(Cell::new(LHS, "port"));
@@ -526,8 +530,6 @@ fn header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: Duration) -> Ve
     ret.push(Cell::new(RHS, "remote-host"));
     ret.push(Cell::new(LHS, ":"));
     ret.push(Cell::new(LHS, "port"));
-    ret.push(Cell::new(RHS, " "));
-    ret.push(Cell::new(RHS, " "));
     ret.push(Cell::new(RHS, " "));
     ret.push(Cell::new(RHS, "in"));
     ret.push(Cell::new(RHS, ":"));
