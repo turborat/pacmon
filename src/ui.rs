@@ -152,10 +152,6 @@ fn sort_by_last_ts(a:&PacStream, b:&PacStream) -> Ordering {
 }
 
 pub fn draw(streams:&mut BTreeMap<StreamKey, PacStream>, q_depth:u64, dropped:u64) {
-    if OPTS.lock().unwrap().pause {
-        return
-    }
-
     let mut pac_vec: Vec<PacStream> = streams.values().cloned().collect();
 
     if SORT_BY.fetch_sub(0, Relaxed) == 0 {
@@ -277,7 +273,7 @@ fn render_normal(pac_vec: Vec<PacStream>, widths: Vec<i16>, q_depth: u64, droppe
     let bytes_sent_last: u64 = pac_vec.iter().map(|s| s.bytes_sent_last).sum();
     let bytes_recv_last: u64 = pac_vec.iter().map(|s| s.bytes_recv_last).sum();
 
-    matrix.push(header(bytes_sent_last, bytes_recv_last, interval));
+    matrix.push(header(bytes_sent_last, bytes_recv_last, interval, resolve));
 
     for i in 0..nrows {
         let row = render_row(&pac_vec[i], bytes_sent_last, bytes_recv_last, resolve, interval);
@@ -521,7 +517,7 @@ fn render_row(stream:&PacStream, total_bytes_sent: u64, total_bytes_recv: u64,
     ret
 }
 
-fn header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: Duration) -> Vec<Cell> {
+fn header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: Duration, resolve:bool) -> Vec<Cell> {
     let mut ret:Vec<Cell> = Vec::new();
     ret.push(Cell::new(RHS, " "));
     ret.push(Cell::new(RHS, " "));
@@ -531,7 +527,10 @@ fn header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: Duration) -> Ve
     ret.push(Cell::new(LHS, " "));
     ret.push(Cell::new(RHS, "remote-host"));
     ret.push(Cell::new(LHS, ":"));
-    ret.push(Cell::new(LHS, "port"));
+    ret.push(Cell::new(LHS, match resolve {
+        true => "svc",
+        false => "port"
+    }));
     ret.push(Cell::new(RHS, " "));
     ret.push(Cell::new(RHS, "in"));
     ret.push(Cell::new(RHS, ":"));
