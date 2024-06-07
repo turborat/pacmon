@@ -44,24 +44,22 @@ static mut LOGFILE: Mutex<Option<File>> = Mutex::new(None);
 
 pub fn log(msg: String) {
     unsafe {
-        let ts = Local::now().format("%H:%M:%S%.3f");
         if let Some(ref mut file) = &mut *LOGFILE.lock().unwrap() {
+            let ts = Local::now().format("%H:%M:%S%.3f");
             writeln!(file, "{} {}", ts, msg).unwrap();
-        } else {
-            // makes test output not nice
-            // writeln!(io::stderr(), "{} ?log:{}", ts, msg).unwrap();
         }
     }
 }
 
 pub fn init_logging() {
-    let fname = ".pacmon.log";
+    let fname = "pacmon.log";
+    println!(">{}", fname);
     let _ = fs::remove_file(fname);
     let file = OpenOptions::new().append(true).create(true).open(fname).unwrap();
     unsafe {
         match LOGFILE.lock() {
             Ok(mut guard) => *guard = Some(file),
-            Err(err) => eprintln!("failed to create {}: {}", fname, err)
+            Err(err) => panic!("failed to create {}: {}", fname, err)
         };
     }
 }

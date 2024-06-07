@@ -18,7 +18,7 @@ fn main() {
         special_processing()
     }
     else {
-        pacmon::run();
+        pacmon::run(args);
     }
 }
 

@@ -1,5 +1,5 @@
 use std::cmp::max;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::io;
 use std::io::Write;
 use std::net::IpAddr;
@@ -17,8 +17,10 @@ use crate::pacstream::PacStream;
 use crate::pcap::Pcap;
 use crate::resolver::Resolver;
 
-pub fn run() {
-    init_logging();
+pub fn run(args: HashSet<String>) {
+    if args.contains("-l") {
+        init_logging();
+    }
 
     let mut interfaces = BTreeSet::new();
     let dev = Device::lookup().unwrap().unwrap();
@@ -29,10 +31,10 @@ pub fn run() {
         }
     }
 
-    print!("Initializing...");
+    print!("loading..");
     io::stdout().flush().unwrap();
     let mut resolver = Resolver::new();
-    println!("done.");
+    println!("..done");
 
     let mut streams: BTreeMap<StreamKey, PacStream> = BTreeMap::new();
     let mut packets = 0u64;
