@@ -138,6 +138,7 @@ fn sort_by_last_ts(a:&PacStream, b:&PacStream) -> Ordering {
 }
 
 pub fn draw(streams:&mut BTreeMap<StreamKey, PacStream>, q_depth:u64, dropped:u64) {
+    let now = millitime();
     let mut pac_vec: Vec<PacStream> = streams.values().cloned().collect();
 
     if SORT_BY.fetch_sub(0, Relaxed) == 0 {
@@ -163,13 +164,13 @@ pub fn draw(streams:&mut BTreeMap<StreamKey, PacStream>, q_depth:u64, dropped:u6
     let (
         widths,
         last_draw,
-        interval
     ) = {
         let opts = OPTS.lock().unwrap();
         (opts.widths.clone(),
-         opts.prev_draw,
-         opts.interval)
+         opts.prev_draw)
     };
+
+    let interval = (now - LAST_TIME.fetch_add(0, Relaxed)) as u64;
 
     if HELP_MODE.fetch_and(true, Relaxed) {
         render_help(&pac_vec, widths, q_depth, dropped, last_draw, interval);
@@ -178,10 +179,10 @@ pub fn draw(streams:&mut BTreeMap<StreamKey, PacStream>, q_depth:u64, dropped:u6
         render_normal(&pac_vec, widths, q_depth, dropped, interval);
     }
 
-    LAST_TIME.store(millitime(), Relaxed);
+    LAST_TIME.store(now, Relaxed);
 }
 
-fn render_help(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64, last_draw: Option<Instant>, interval: Duration) {
+fn render_help(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64, last_draw: Option<Instant>, interval: u64) {
     clear();
 
     mvaddch(0, 0, ACS_ULCORNER());
@@ -232,7 +233,7 @@ fn render_help(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped
     refresh();
 }
 
-fn render_normal(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64, interval: Duration) {
+fn render_normal(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64, interval: u64) {
     let nrows = min(pac_vec.len(), (LINES() - 2) as usize);
     let mut matrix: Vec<Vec<Cell>> = Vec::new();
 
@@ -423,7 +424,7 @@ fn compute_widths(matrix:&Vec<Vec<Cell>>, prev_widths:&Vec<i16>) -> Vec<i16> {
 }
 
 fn render_row(stream:&PacStream, total_bytes_sent: u64, total_bytes_recv: u64,
-              resolve: bool, elapsed: Duration) -> Vec<Cell> {
+              resolve: bool, elapsed: u64) -> Vec<Cell> {
     let mut ret:Vec<Cell> = Vec::new();
 
     ret.push(Cell::new(LHS, &str(stream.ip_number)));
@@ -483,7 +484,7 @@ fn render_row(stream:&PacStream, total_bytes_sent: u64, total_bytes_recv: u64,
     ret
 }
 
-fn header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: Duration, resolve:bool) -> Vec<Cell> {
+fn header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: u64, resolve:bool) -> Vec<Cell> {
     let mut ret:Vec<Cell> = Vec::new();
     ret.push(Cell::new(RHS, " "));
     ret.push(Cell::new(RHS, " "));
@@ -557,8 +558,8 @@ fn pct_fmt(pct:f64) -> String {
     }
 }
 
-fn speed(bytes: u64, elapsed: Duration) -> String {
-    let secs = elapsed.as_millis() as f64 / 1000f64;
+fn speed(bytes: u64, elapsed: u64) -> String {
+    let secs = elapsed as f64 / 1000f64;
     if secs == 0f64 {
         mag_fmt(bytes) + "/s"
     }
@@ -609,8 +610,8 @@ mod tests {
 
     #[test]
     fn test_bps() {
-        assert_eq!("123b/s", speed(123, Duration::from_millis(0)));
-        assert_eq!("246b/s", speed(123, Duration::from_millis(500)));
-        assert_eq!("11k/s", speed(22*1024, Duration::from_millis(2000)));
+        assert_eq!("123b/s", speed(123, 0));
+        assert_eq!("246b/s", speed(123, 500));
+        assert_eq!("11k/s", speed(22*1024, 2000));
     }
 }
