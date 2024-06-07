@@ -78,8 +78,7 @@ pub fn fmt_duration(duration: Duration) -> String {
 }
 
 pub fn millitime() -> i64 {
-    let now = Utc::now();
-    now.timestamp() * 1000 + now.timestamp_millis()
+    Utc::now().timestamp_millis()
 }
 
 #[cfg(test)]
