@@ -95,7 +95,7 @@ pub fn fmt_millis(millis:i64) -> String {
 mod tests {
     use std::time::Duration;
 
-    use crate::etc::{fmt_duration, fmt_millis, mag_fmt, millitime};
+    use crate::etc::{fmt_duration, fmt_millis, mag_fmt};
 
     #[test]
     fn test_mag_fmt() {

@@ -16,15 +16,14 @@ use crate::pacstream::PacStream;
 use crate::ui::Justify::{LHS, RHS};
 
 static WIDTHS: Mutex<Lazy<Vec<i16>>> = Mutex::new(Lazy::new(||vec![]));
-static CMDS:Mutex<Lazy<HashMap<char,fn()>>> = Mutex::new(Lazy::new(||HashMap::new()));
-static HELP:Mutex<Lazy<BTreeMap<char,String>>> = Mutex::new(Lazy::new(||BTreeMap::new()));
+static CMDS:Mutex<Lazy<HashMap<char,fn()>>> = Mutex::new(Lazy::new(||HashMap::new()));static CMD_INFO:Mutex<Lazy<BTreeMap<char,String>>> = Mutex::new(Lazy::new(||BTreeMap::new()));
 static START_TIME:AtomicI64 = AtomicI64::new(0);
-static LAST_TIME:AtomicI64 = AtomicI64::new(0);
+static LAST_DRAW:AtomicI64 = AtomicI64::new(0);
 static REDRAW_REQUSTED:AtomicBool = AtomicBool::new(false);
-static RESOLVE:AtomicBool = AtomicBool::new(true);
-static HELP_MODE:AtomicBool = AtomicBool::new(false);
-static PAUSED:AtomicBool = AtomicBool::new(false);
 static REDRAW_PERIOD:AtomicI64 = AtomicI64::new(3000);
+static RESOLVE:AtomicBool = AtomicBool::new(true);
+static HELP:AtomicBool = AtomicBool::new(false);
+static PAUSED:AtomicBool = AtomicBool::new(false);
 static SORT_BY:AtomicI64 = AtomicI64::new(0);
 static CORP_THRESH: i32 = 105;
 
@@ -53,7 +52,7 @@ pub fn start() {
     refresh();
 
     register_cmd('q', "quit",    || exit(0, "bye".to_string()));
-    register_cmd('h', "help",    || { HELP_MODE.fetch_xor(true, Relaxed); } );
+    register_cmd('h', "help",    || { HELP.fetch_xor(true, Relaxed); } );
     register_cmd('r', "resolve", || { RESOLVE.fetch_xor(true, Relaxed); } );
     register_cmd(' ', "pause",   || { PAUSED.fetch_xor(true, Relaxed); } );
     register_cmd('t', "trim",    || { WIDTHS.lock().unwrap().clear(); } );
@@ -78,7 +77,7 @@ pub fn start() {
 
 fn register_cmd(c:char, desc: &str, cmd:fn()) {
     CMDS.lock().unwrap().insert(c, cmd);
-    HELP.lock().unwrap().insert(c, desc.to_string());
+    CMD_INFO.lock().unwrap().insert(c, desc.to_string());
 }
 
 pub fn should_redraw() -> bool {
@@ -94,10 +93,10 @@ pub fn should_redraw() -> bool {
     let redraw_period = REDRAW_PERIOD.fetch_sub(0, Relaxed); 
 
     if now - START_TIME.fetch_sub(0, Relaxed) < 5000 {
-        return now - LAST_TIME.fetch_sub(0, Relaxed) >= 100;
+        return now - LAST_DRAW.fetch_sub(0, Relaxed) >= 100;
     }
 
-    if now - LAST_TIME.fetch_sub(0, Relaxed) >= redraw_period {
+    if now - LAST_DRAW.fetch_sub(0, Relaxed) >= redraw_period {
         return true;
     }
 
@@ -139,16 +138,16 @@ pub fn draw(streams:&mut BTreeMap<StreamKey, PacStream>, q_depth:u64, dropped:u6
     }
 
     let widths = { WIDTHS.lock().unwrap().clone() };
-    let interval = (now - LAST_TIME.fetch_add(0, Relaxed)) as u64;
+    let interval = (now - LAST_DRAW.fetch_add(0, Relaxed)) as u64;
 
-    if HELP_MODE.fetch_and(true, Relaxed) {
+    if HELP.fetch_and(true, Relaxed) {
         render_help(&pac_vec, widths, q_depth, dropped, interval);
     }
     else {
         render_normal(&pac_vec, widths, q_depth, dropped, interval);
     }
 
-    LAST_TIME.store(now, Relaxed);
+    LAST_DRAW.store(now, Relaxed);
 }
 
 fn render_help(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64, interval: u64) {
@@ -171,11 +170,11 @@ fn render_help(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped
     let mut tt = vec![
         format!("     q depth: {:<8} pacs drop'd: {}", q_depth, dropped),
         format!("     resolve: {:<8} pause: {:?}", resolve.to_string(), pause),
-        format!("   last_draw: {}", fmt_millis(LAST_TIME.fetch_sub(0, Relaxed))),
+        format!("   last_draw: {}", fmt_millis(LAST_DRAW.fetch_sub(0, Relaxed))),
         format!("        recv: {:<8} sent:{:<8} interval: {:?}",
                 speed(bytes_recv_last, interval), speed(bytes_sent_last, interval), interval),
         format!("      widths: {:?}", widths),
-        format!("    commands: {}", HELP.lock().unwrap().iter()
+        format!("    commands: {}", CMD_INFO.lock().unwrap().iter()
             .map(|(c,txt)| format!("'{}':{}", c, txt))
             .collect::<Vec<String>>()
             .join("  ")
