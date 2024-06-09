@@ -2,7 +2,6 @@ use std::{panic, sync, thread};
 use std::backtrace::Backtrace;
 use std::cmp::{max, min, Ordering};
 use std::collections::{BTreeMap, HashMap};
-use std::ops::DerefMut;
 use std::sync::atomic::{AtomicBool, AtomicI64};
 use std::sync::Mutex;
 use sync::atomic::Ordering::Relaxed;
@@ -16,16 +15,8 @@ use crate::pacdat::StreamKey;
 use crate::pacstream::PacStream;
 use crate::ui::Justify::{LHS, RHS};
 
-#[derive(Debug)]
-struct UIOpt {
-    widths: Vec<i16>
-}
-
-static OPTS: Mutex<UIOpt> = Mutex::new(UIOpt {
-    widths: vec![]
-});
-
-static CMDS:Mutex<Lazy<HashMap<char,fn(&mut UIOpt)>>> = Mutex::new(Lazy::new(||HashMap::new()));
+static WIDTHS: Mutex<Lazy<Vec<i16>>> = Mutex::new(Lazy::new(||vec![]));
+static CMDS:Mutex<Lazy<HashMap<char,fn()>>> = Mutex::new(Lazy::new(||HashMap::new()));
 static HELP:Mutex<Lazy<BTreeMap<char,String>>> = Mutex::new(Lazy::new(||BTreeMap::new()));
 static START_TIME:AtomicI64 = AtomicI64::new(0);
 static LAST_TIME:AtomicI64 = AtomicI64::new(0);
@@ -61,22 +52,22 @@ pub fn start() {
     curs_set(CURSOR_VISIBILITY::CURSOR_INVISIBLE);
     refresh();
 
-    register_cmd('q', "quit",    |_opt| exit(0, "bye".to_string()));
-    register_cmd('h', "help",    |_opt| { HELP_MODE.fetch_xor(true, Relaxed); } );
-    register_cmd('r', "resolve", |_opt| { RESOLVE.fetch_xor(true, Relaxed); } );
-    register_cmd(' ', "pause",   |_opt| { PAUSED.fetch_xor(true, Relaxed); } );
-    register_cmd('t', "trim",    |opt| opt.widths = vec![] );
-    register_cmd('s', "sort",    |_opt| { let _ = SORT_BY.fetch_update(Relaxed, Relaxed, |v| Some( if v == 0 { 1 } else { 0 })); } );
-    register_cmd('1', "1s",    |_opt| REDRAW_PERIOD.store(1000, Relaxed));
-    register_cmd('2', "2s",    |_opt| REDRAW_PERIOD.store(2000, Relaxed));
-    register_cmd('3', "3s",    |_opt| REDRAW_PERIOD.store(3000, Relaxed));
-    register_cmd('4', "4s",    |_opt| REDRAW_PERIOD.store(4000, Relaxed));
-    register_cmd('5', "5s",    |_opt| REDRAW_PERIOD.store(5000, Relaxed));
-    register_cmd('6', "6s",    |_opt| REDRAW_PERIOD.store(6000, Relaxed));
-    register_cmd('7', "7s",    |_opt| REDRAW_PERIOD.store(7000, Relaxed));
-    register_cmd('8', "8s",    |_opt| REDRAW_PERIOD.store(8000, Relaxed));
-    register_cmd('9', "9s",    |_opt| REDRAW_PERIOD.store(9000, Relaxed));
-    register_cmd('0', "<1s",    |_opt| REDRAW_PERIOD.store(250, Relaxed));
+    register_cmd('q', "quit",    || exit(0, "bye".to_string()));
+    register_cmd('h', "help",    || { HELP_MODE.fetch_xor(true, Relaxed); } );
+    register_cmd('r', "resolve", || { RESOLVE.fetch_xor(true, Relaxed); } );
+    register_cmd(' ', "pause",   || { PAUSED.fetch_xor(true, Relaxed); } );
+    register_cmd('t', "trim",    || { WIDTHS.lock().unwrap().clear(); } );
+    register_cmd('s', "sort",    || { let _ = SORT_BY.fetch_update(Relaxed, Relaxed, |v| Some( if v == 0 { 1 } else { 0 })); } );
+    register_cmd('1', "1s",      || REDRAW_PERIOD.store(1000, Relaxed));
+    register_cmd('2', "2s",      || REDRAW_PERIOD.store(2000, Relaxed));
+    register_cmd('3', "3s",      || REDRAW_PERIOD.store(3000, Relaxed));
+    register_cmd('4', "4s",      || REDRAW_PERIOD.store(4000, Relaxed));
+    register_cmd('5', "5s",      || REDRAW_PERIOD.store(5000, Relaxed));
+    register_cmd('6', "6s",      || REDRAW_PERIOD.store(6000, Relaxed));
+    register_cmd('7', "7s",      || REDRAW_PERIOD.store(7000, Relaxed));
+    register_cmd('8', "8s",      || REDRAW_PERIOD.store(8000, Relaxed));
+    register_cmd('9', "9s",      || REDRAW_PERIOD.store(9000, Relaxed));
+    register_cmd('0', "<1s",     || REDRAW_PERIOD.store(250, Relaxed));
 
     let _ = thread::Builder::new()
         .name("pacmon:key-stroker".to_string())
@@ -85,7 +76,7 @@ pub fn start() {
     START_TIME.store(millitime(), Relaxed);
 }
 
-fn register_cmd(c:char, desc: &str, cmd:fn(&mut UIOpt)) {
+fn register_cmd(c:char, desc: &str, cmd:fn()) {
     CMDS.lock().unwrap().insert(c, cmd);
     HELP.lock().unwrap().insert(c, desc.to_string());
 }
@@ -147,7 +138,7 @@ pub fn draw(streams:&mut BTreeMap<StreamKey, PacStream>, q_depth:u64, dropped:u6
         stream.reset_stats();
     }
 
-    let widths = { OPTS.lock().unwrap().widths.clone() };
+    let widths = { WIDTHS.lock().unwrap().clone() };
     let interval = (now - LAST_TIME.fetch_add(0, Relaxed)) as u64;
 
     if HELP_MODE.fetch_and(true, Relaxed) {
@@ -306,8 +297,9 @@ fn render_normal(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropp
     refresh();
 
     {
-        let mut opts = OPTS.lock().unwrap();
-        opts.widths = widths;
+        let mut prev_widths = WIDTHS.lock().unwrap();
+        prev_widths.clear();
+        prev_widths.extend(widths);
     }
 }
 
@@ -333,12 +325,7 @@ fn keystroke_handler() {
     loop {
         let c = getch();
         match CMDS.lock().unwrap().get(&std::char::from_u32(c as u32).unwrap()) {
-            Some(cmd) => {
-                {
-                    let mut opts = OPTS.lock().unwrap();
-                    cmd(opts.deref_mut());
-                }
-            }
+            Some(cmd) => cmd(),
             None => log(format!("getch({})", c))
         }
         REDRAW_REQUSTED.store(true, Relaxed);

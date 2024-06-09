@@ -84,7 +84,9 @@ pub fn millitime() -> i64 {
 pub fn fmt_millis(millis:i64) -> String {
     let secs = millis / 1000;
     let nanos = (millis % 1000) * 1_000_000;
+    #[allow(deprecated)]
     let naive_dt = NaiveDateTime::from_timestamp(secs, nanos as u32);
+    #[allow(deprecated)]
     let dt: DateTime<Utc> = DateTime::<Utc>::from_utc(naive_dt, Utc);
     dt.format("%H:%M:%S%.3f").to_string()
 }
