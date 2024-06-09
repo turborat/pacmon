@@ -2,7 +2,7 @@ use std::{panic, sync, thread};
 use std::backtrace::Backtrace;
 use std::cmp::{max, min, Ordering};
 use std::collections::{BTreeMap, HashMap};
-use std::sync::atomic::{AtomicBool, AtomicI64};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64};
 use std::sync::Mutex;
 use sync::atomic::Ordering::Relaxed;
 
@@ -25,6 +25,7 @@ static RESOLVE:AtomicBool = AtomicBool::new(true);
 static HELP:AtomicBool = AtomicBool::new(false);
 static PAUSED:AtomicBool = AtomicBool::new(false);
 static SORT_BY:AtomicI64 = AtomicI64::new(0);
+static COLSS:AtomicI32 = AtomicI32::new(0); // used to detect resize
 
 pub fn exit(code:i32, msg:String) {
     endwin();
@@ -82,6 +83,13 @@ fn register_cmd(c:char, desc: &str, cmd:fn()) {
 pub fn should_redraw() -> bool {
     if REDRAW_REQUSTED.swap(false, Relaxed) {
         return true;
+    }
+
+    if COLSS.fetch_sub(0, Relaxed) != COLS() {
+      log("resize detected".to_string());
+      COLSS.store(COLS(), Relaxed);
+      WIDTHS.lock().unwrap().clear();
+      return true;  
     }
 
     if PAUSED.fetch_and(true, Relaxed) {
