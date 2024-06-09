@@ -25,7 +25,6 @@ static RESOLVE:AtomicBool = AtomicBool::new(true);
 static HELP:AtomicBool = AtomicBool::new(false);
 static PAUSED:AtomicBool = AtomicBool::new(false);
 static SORT_BY:AtomicI64 = AtomicI64::new(0);
-static CORP_THRESH: i32 = 105;
 
 pub fn exit(code:i32, msg:String) {
     endwin();
@@ -112,9 +111,9 @@ fn sort_by_bytes(a:&PacStream, b:&PacStream) -> Ordering {
 }
 
 fn sort_by_last_ts(a:&PacStream, b:&PacStream) -> Ordering {
-    let mut ret = b.ts_last.timestamp().cmp(&a.ts_last.timestamp());
+    let mut ret = b.bytes_last().cmp(&a.bytes_last());
     if ret.is_eq() {
-        ret = b.bytes_last().cmp(&a.bytes_last());
+        ret = b.ts_last.cmp(&a.ts_last);
     }
     if ret.is_eq() {
         ret = b.bytes().cmp(&a.bytes());
@@ -218,36 +217,8 @@ fn render_normal(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropp
     // hack to resize //
     let render_len = widths.iter().sum::<i16>();
     let deficit = COLS() as i16 - render_len;
-
-    if deficit < 10 || COLS() < CORP_THRESH {
-        // if we don't have enough space for corps just adjust our hosts
-        widths[2 /*local-host*/] += deficit / 3;
-        widths[6 /*remote-host*/] += deficit - deficit / 3;
-        // this is soooo error prone
-    }
-    else {
-        // else add corp //
-        widths.push(1);
-        widths.push(deficit-1);
-        matrix.get_mut(0).unwrap().push(Cell::new(RHS, " "));
-        matrix.get_mut(0).unwrap().push(Cell::new(RHS, "corp"));
-
-        for i in 0..nrows {
-            let row = matrix.get_mut(i+1).unwrap();
-            let mut corp = pac_vec.get(i).unwrap().corp.to_string();
-
-            if corp.len() as i16 > deficit-1 {
-                corp = corp.chars().take(deficit as usize -1).collect();
-            }
-
-            while corp.ends_with(" ") {
-                corp = corp.chars().take(corp.len() - 1).collect();
-            }
-
-            row.push(Cell::new(RHS, ""));
-            row.push(Cell::new(RHS, &corp));
-        }
-    }
+    widths[2 /*local-host*/] += deficit / 3;
+    widths[6 /*remote-host*/] += deficit - deficit / 3;
 
     clear();
 
@@ -442,6 +413,12 @@ fn render_row(stream:&PacStream, total_bytes_sent: u64, total_bytes_recv: u64,
     ret.push(Cell::new(RHS, &stream.age()));
     ret.push(Cell::new(RHS, " "));
     ret.push(Cell::new(RHS, &stream.cc));
+
+    let mut corp = stream.corp.to_string();
+    coax_str(&mut corp, (COLS() as f32 * 0.13) as usize);
+    ret.push(Cell::new(RHS, ""));
+    ret.push(Cell::new(RHS, &corp));
+
     ret
 }
 
@@ -476,6 +453,9 @@ fn header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: u64, resolve:bo
     ret.push(Cell::new(RHS, "age"));
     ret.push(Cell::new(LHS, ""));
     ret.push(Cell::new(RHS, "cc"));
+    ret.push(Cell::new(RHS, " "));
+    ret.push(Cell::new(RHS, "corp"));
+
     ret
 }
 
@@ -501,6 +481,20 @@ fn trim_host(host:&String) -> String {
     }
 
     host.to_string()
+}
+
+fn coax_str(txt:&mut String, target_width:usize) {
+    if txt.len() > target_width {
+        txt.truncate(target_width);
+    }
+
+    while txt.ends_with(" ") {
+        txt.truncate(txt.len()-1);
+    }
+
+    while txt.len() < target_width {
+        txt.insert(0, ' ');
+    }
 }
 
 fn pct_fmt(pct:f64) -> String {
