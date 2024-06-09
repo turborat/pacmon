@@ -217,8 +217,9 @@ fn render_normal(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropp
     // hack hack hack hack hack hack hack //
     let render_len = widths.iter().sum::<i16>();
     let deficit = COLS() as i16 - render_len;
-    widths[2 /*local-host*/] += deficit / 3;
-    widths[6 /*remote-host*/] += deficit - deficit / 3;
+    let total = widths[2] + widths[6] + deficit;
+    widths[2 /*local-host*/] = (total as f32 * 0.4) as i16;
+    widths[6 /*remote-host*/] = total - widths[2 /*local-host*/];
 
     clear();
 
