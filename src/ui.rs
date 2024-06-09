@@ -214,7 +214,7 @@ fn render_normal(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropp
 
     let mut widths = compute_widths(&matrix, &widths);
 
-    // hack to resize //
+    // hack hack hack hack hack hack hack //
     let render_len = widths.iter().sum::<i16>();
     let deficit = COLS() as i16 - render_len;
     widths[2 /*local-host*/] += deficit / 3;
@@ -392,7 +392,11 @@ fn render_row(stream:&PacStream, total_bytes_sent: u64, total_bytes_recv: u64,
     ret.push(Cell::new(LHS, ":"));
 
     ret.push(Cell::new(LHS, &match resolve {
-        true => stream.remote_service.to_string(),
+        true => {
+            let mut ss = stream.remote_service.to_string();
+            ss.truncate(6);
+            ss
+        },
         false => stream.remote_port.to_string()
     }));
 
@@ -415,7 +419,7 @@ fn render_row(stream:&PacStream, total_bytes_sent: u64, total_bytes_recv: u64,
     ret.push(Cell::new(RHS, &stream.cc));
 
     let mut corp = stream.corp.to_string();
-    coax_str(&mut corp, (COLS() as f32 * 0.13) as usize);
+    massage_corp(&mut corp, (COLS() as f32 * 0.13) as usize);
     ret.push(Cell::new(RHS, ""));
     ret.push(Cell::new(RHS, &corp));
 
@@ -483,7 +487,7 @@ fn trim_host(host:&String) -> String {
     host.to_string()
 }
 
-fn coax_str(txt:&mut String, target_width:usize) {
+fn massage_corp(txt:&mut String, target_width:usize) {
     if txt.len() > target_width {
         txt.truncate(target_width);
     }
