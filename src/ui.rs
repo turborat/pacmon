@@ -222,7 +222,7 @@ fn render_normal(pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropp
 
     let mut widths = compute_widths(&matrix, &widths);
 
-    // hack hack hack hack hack hack hack //
+    // hack hack hack hack hack hack hack - to line things up //
     let render_len = widths.iter().sum::<i16>();
     let deficit = COLS() as i16 - render_len;
     let total = widths[2] + widths[6] + deficit;

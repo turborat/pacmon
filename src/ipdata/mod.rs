@@ -37,7 +37,7 @@ impl IpData {
             let insert = Instant::now();
             for cc in ccc {
                 companies.insert(cc.0, Company { 
-                  bit_mask: bit_mask(cc.1), 
+                  bit_mask: bit_mask(cc.1, mask_width(cc.0)), 
                   name: cc.2.to_string() 
                 });
             }
@@ -50,7 +50,7 @@ impl IpData {
         {
             for cc in ccc() {
                 locations.insert(cc.0, Location {
-                    bit_mask: bit_mask(cc.1),
+                    bit_mask: bit_mask(cc.1, mask_width(cc.0)),
                     country:cc.2.to_string(),
                     city:cc.3.to_string()
                 });
@@ -66,15 +66,15 @@ impl IpData {
         let ip_int = addr_to_int(addr);
         if let Some((&subnet, &ref company)) = self.companies.range(..=ip_int).next_back() {
             log(format!("ipdata::lookup::company[{}] took {:?}", addr, t1.elapsed()));
-            if subnet & company.bit_mask == ip_int & company.bit_mask {
+            if same_subnet(ip_int, subnet, company.bit_mask) {
               company.name.to_string()
             }
             else {
-              ".".to_string()
+              "!".to_owned() + &company.name.to_string()
             }
         }
         else {
-            panic!("Failed to determine company for {}/{}", addr, ip_int);
+          "o".to_string()
         }
     }
 
@@ -83,27 +83,32 @@ impl IpData {
         let ip_int = addr_to_int(addr);
         if let Some((&subnet, &ref location)) = self.locations.range(..=ip_int).next_back() {
             log(format!("ipdata::lookup::location[{}] took {:?}", addr, t1.elapsed()));
-            if subnet & location.bit_mask == ip_int & location.bit_mask {
-              Some(location)
-            }
-            else {
-              None
+            if same_subnet(ip_int, subnet, location.bit_mask) {
+              return Some(location);
             }
         }
-        else {
-            panic!("Failed to determine location for {}/{}", addr, ip_int);
-        }
+        None
     }
 }
 
 
-fn bit_mask(bits:u32) -> u128 {
-  if bits > 128 {
+fn bit_mask(bits:u32, width:u32) -> u128 {
+  if bits > width {
     panic!("this should never happen");
   }
-  ((1u128 << bits) - 1).wrapping_shl(128-bits)
+  ((1u128 << bits) - 1).wrapping_shl(width-bits)
 }
 
+fn mask_width(addr_int:u128) -> u32 {
+  match addr_int <= 0xFFFFFFFF {
+    true => 32,
+    false => 128
+  }
+}
+
+fn same_subnet(addr_int:u128, subnet_int:u128, mask:u128) -> bool {
+  addr_int & mask == subnet_int & mask
+}
 
 #[cfg(test)]
 mod tests {
@@ -118,7 +123,17 @@ mod tests {
         assert_eq!("GOOGLE", ipdata.company(&addr("8.8.8.4")));
         assert_eq!("GOOGLE", ipdata.company(&addr("8.8.8.0")));
         assert_eq!("CLOUDFLARENET", ipdata.company(&addr("1.0.0.0")));
-        assert_eq!("TOT Public Company Limited", ipdata.company(&addr("1.1.0.0")));
+
+        //1.0.128.0/19
+        assert_eq!(".", ipdata.company(&addr("0.1.0.0")));
+        assert_eq!("TOT Public Company Limited", ipdata.company(&addr("1.0.128.3")));
+
+        //(3758095872 /*223.255.254.0/24*/, 24, "MARINA BAY SANDS PTE LTD"),
+        assert_eq!(".", ipdata.company(&addr("224.0.0.251")));
+        assert_eq!(".", ipdata.company(&addr("239.255.255.250")));
+        assert_eq!("MARINA BAY SANDS PTE LTD", ipdata.company(&addr("223.255.254.255")));
+        assert_eq!("MARINA BAY SANDS PTE LTD", ipdata.company(&addr("223.255.254.0")));
+        assert_eq!(".", ipdata.company(&addr("223.255.255.0")));
     }
 
     #[test]
@@ -130,8 +145,17 @@ mod tests {
 
     #[test]
     fn test_bit_mask() {
-      assert_eq!("0", format!("{:b}", bit_mask(0)));
-      assert_eq!("10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", format!("{:b}", bit_mask(1)));
-      assert_eq!("11111111111111111111111111111111000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", format!("{:b}", bit_mask(32)));
+      assert_eq!("0", format!("{:b}", bit_mask(0, 32)));
+      assert_eq!("10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", format!("{:b}", bit_mask(1, 128)));
+      assert_eq!("11111111111111111111111111111111000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", format!("{:b}", bit_mask(32, 128)));
+      assert_eq!("1100", format!("{:b}", bit_mask(2, 4)));
+      assert_eq!("11000000", format!("{:b}", bit_mask(2, 8)));
+      assert_eq!("11110000", format!("{:b}", bit_mask(4, 8)));
+    }
+
+    #[test]
+    fn test_mask_width() {
+        assert_eq!(32, mask_width(addr_to_int(&addr("8.8.8.8"))));      
+        assert_eq!(128, mask_width(addr_to_int(&addr("2001:200:800::"))));      
     }
 }
