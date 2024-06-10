@@ -16,6 +16,7 @@ use crate::pacdat::{PacDat, StreamKey};
 use crate::pacstream::PacStream;
 use crate::pcap::Pcap;
 use crate::resolver::Resolver;
+use crate::ui::UI;
 
 pub fn run(args: HashSet<String>) {
     if args.contains("-l") {
@@ -42,6 +43,8 @@ pub fn run(args: HashSet<String>) {
     let mut q_max = 0u64;
     let mut running = false;
 
+    let ui = UI::init();
+
     ui::set_panic_hook();
 
     let pcap = Pcap::new();
@@ -52,7 +55,7 @@ pub fn run(args: HashSet<String>) {
             Ok(mut pac_dat) => {
                 // only start curses once we get a packet
                 if !running {
-                    ui::start();
+                    ui.show();
                     running = true;
                 }
 
@@ -64,12 +67,12 @@ pub fn run(args: HashSet<String>) {
             }
         }
 
-        if ui::should_redraw() {
+        if ui.should_redraw() {
             let start = Instant::now();
             let dropped = pcap.packets_dropped();
             let dropped_curr = dropped - last_packets_dropped;
 
-            ui::draw(&mut streams, q_max.clone(), dropped_curr);
+            ui.draw(&mut streams, q_max.clone(), dropped_curr);
 
             log(format!("redraw[qMax:{} packets:{}] took {:?}", q_max, packets, start.elapsed()));
 
