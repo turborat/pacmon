@@ -23,12 +23,12 @@ static REDRAW_PERIOD:AtomicI64 = AtomicI64::new(3000);
 static RESOLVE:AtomicBool = AtomicBool::new(true);
 static HELP:AtomicBool = AtomicBool::new(false);
 static PAUSED:AtomicBool = AtomicBool::new(false);
-static LAST_COLS:AtomicI32 = AtomicI32::new(0); // used to detect resize
 static SORT_BY:AtomicI64 = AtomicI64::new(0);
 
 pub struct UI {
     start_time: AtomicI64,
-    last_draw: AtomicI64
+    last_draw: AtomicI64,
+    last_cols: AtomicI32
 }
 
 impl UI {
@@ -36,7 +36,8 @@ impl UI {
         set_panic_hook();
         UI {
             start_time: AtomicI64::new(millitime()),
-            last_draw: AtomicI64::new(0)
+            last_draw: AtomicI64::new(0),
+            last_cols: AtomicI32::new(0)
         }
     }
 
@@ -45,26 +46,26 @@ impl UI {
         curs_set(CURSOR_VISIBILITY::CURSOR_INVISIBLE);
         refresh();
 
-        self.register_cmd('q', "quit",    || exit(0, "bye".to_string()));
-        self.register_cmd('h', "help",    || { HELP.fetch_xor(true, Relaxed); } );
-        self.register_cmd('r', "resolve", || { RESOLVE.fetch_xor(true, Relaxed); } );
-        self.register_cmd(' ', "pause",   || { PAUSED.fetch_xor(true, Relaxed); } );
-        self.register_cmd('t', "trim",    || { WIDTHS.lock().unwrap().clear(); } );
-        self.register_cmd('s', "sort",    || { let _ = SORT_BY.fetch_update(Relaxed, Relaxed, |v| Some( if v == 0 { 1 } else { 0 })); } );
-        self.register_cmd('1', "1s",      || REDRAW_PERIOD.store(1000, Relaxed));
-        self.register_cmd('2', "2s",      || REDRAW_PERIOD.store(2000, Relaxed));
-        self.register_cmd('3', "3s",      || REDRAW_PERIOD.store(3000, Relaxed));
-        self.register_cmd('4', "4s",      || REDRAW_PERIOD.store(4000, Relaxed));
-        self.register_cmd('5', "5s",      || REDRAW_PERIOD.store(5000, Relaxed));
-        self.register_cmd('6', "6s",      || REDRAW_PERIOD.store(6000, Relaxed));
-        self.register_cmd('7', "7s",      || REDRAW_PERIOD.store(7000, Relaxed));
-        self.register_cmd('8', "8s",      || REDRAW_PERIOD.store(8000, Relaxed));
-        self.register_cmd('9', "9s",      || REDRAW_PERIOD.store(9000, Relaxed));
-        self.register_cmd('0', "<1s",     || REDRAW_PERIOD.store(250, Relaxed));
+        self.register_cmd('q', "quit", || shutdown(0, "bye".to_string()));
+        self.register_cmd('h', "help", || { HELP.fetch_xor(true, Relaxed); });
+        self.register_cmd('r', "resolve", || { RESOLVE.fetch_xor(true, Relaxed); });
+        self.register_cmd(' ', "pause", || { PAUSED.fetch_xor(true, Relaxed); });
+        self.register_cmd('t', "trim", || { WIDTHS.lock().unwrap().clear(); });
+        self.register_cmd('s', "sort", || { let _ = SORT_BY.fetch_update(Relaxed, Relaxed, |v| Some(if v == 0 { 1 } else { 0 })); });
+        self.register_cmd('1', "1s", || REDRAW_PERIOD.store(1000, Relaxed));
+        self.register_cmd('2', "2s", || REDRAW_PERIOD.store(2000, Relaxed));
+        self.register_cmd('3', "3s", || REDRAW_PERIOD.store(3000, Relaxed));
+        self.register_cmd('4', "4s", || REDRAW_PERIOD.store(4000, Relaxed));
+        self.register_cmd('5', "5s", || REDRAW_PERIOD.store(5000, Relaxed));
+        self.register_cmd('6', "6s", || REDRAW_PERIOD.store(6000, Relaxed));
+        self.register_cmd('7', "7s", || REDRAW_PERIOD.store(7000, Relaxed));
+        self.register_cmd('8', "8s", || REDRAW_PERIOD.store(8000, Relaxed));
+        self.register_cmd('9', "9s", || REDRAW_PERIOD.store(9000, Relaxed));
+        self.register_cmd('0', "<1s", || REDRAW_PERIOD.store(250, Relaxed));
 
         let _ = thread::Builder::new()
             .name("pacmon:key-stroker".to_string())
-            .spawn(keystroke_handler);
+            .spawn(|| keystroke_handler());
 
         self.start_time.store(millitime(), Relaxed);
     }
@@ -74,9 +75,9 @@ impl UI {
             return true;
         }
 
-        if LAST_COLS.fetch_sub(0, Relaxed) != COLS() {
+        if self.last_cols.fetch_sub(0, Relaxed) != COLS() {
             log("resize detected".to_string());
-            LAST_COLS.store(COLS(), Relaxed);
+            self.last_cols.store(COLS(), Relaxed);
             WIDTHS.lock().unwrap().clear();
             return true;
         }
@@ -99,14 +100,13 @@ impl UI {
         return false;
     }
 
-    pub fn draw(&self, streams:&mut BTreeMap<StreamKey, PacStream>, q_depth:u64, dropped:u64) {
+    pub fn draw(&self, streams: &mut BTreeMap<StreamKey, PacStream>, q_depth: u64, dropped: u64) {
         let now = millitime();
         let mut pac_vec: Vec<PacStream> = streams.values().cloned().collect();
 
         if SORT_BY.fetch_sub(0, Relaxed) == 0 {
             pac_vec.sort_by(sort_by_last_ts);
-        }
-        else {
+        } else {
             pac_vec.sort_by(sort_by_bytes);
         }
 
@@ -119,8 +119,7 @@ impl UI {
 
         if HELP.fetch_and(true, Relaxed) {
             self.render_help(&pac_vec, widths, q_depth, dropped, interval);
-        }
-        else {
+        } else {
             self.render_normal(&pac_vec, widths, q_depth, dropped, interval);
         }
 
@@ -152,7 +151,7 @@ impl UI {
                     speed(bytes_recv_last, interval), speed(bytes_sent_last, interval), interval),
             format!("      widths: {:?}", widths),
             format!("    commands: {}", CMD_INFO.lock().unwrap().iter()
-                .map(|(c,txt)| format!("'{}':{}", c, txt))
+                .map(|(c, txt)| format!("'{}':{}", c, txt))
                 .collect::<Vec<String>>()
                 .join("  ")
             )
@@ -170,7 +169,7 @@ impl UI {
             mvprintw(i as i32 + y_offset, x_offset, &tt[i]);
         }
 
-        mvprintw(LINES()-1, COLS()-19, &format!("{:?}", Utc::now().time()));
+        mvprintw(LINES() - 1, COLS() - 19, &format!("{:?}", Utc::now().time()));
 
         refresh();
     }
@@ -217,8 +216,7 @@ impl UI {
 
                 if i == 0 {
                     attron(A_BOLD());
-                }
-                else {
+                } else {
                     attroff(A_BOLD());
                 }
 
@@ -235,11 +233,11 @@ impl UI {
         attron(A_REVERSE());
 
         let footer = self.footer(q_depth, dropped);
-        mvprintw(LINES()-1, 0, &footer);
+        mvprintw(LINES() - 1, 0, &footer);
 
         pad(COLS() - footer.len() as i32);
 
-        mvprintw(LINES()-1, COLS()-8, &format!("{:?}", Local::now().time()));
+        mvprintw(LINES() - 1, COLS() - 8, &format!("{:?}", Local::now().time()));
 
         attroff(A_REVERSE());
 
@@ -252,8 +250,8 @@ impl UI {
         }
     }
 
-    fn render_row(&self, stream:&PacStream, total_bytes_sent: u64, total_bytes_recv: u64, resolve: bool, elapsed: u64) -> Vec<Cell> {
-        let mut ret:Vec<Cell> = Vec::new();
+    fn render_row(&self, stream: &PacStream, total_bytes_sent: u64, total_bytes_recv: u64, resolve: bool, elapsed: u64) -> Vec<Cell> {
+        let mut ret: Vec<Cell> = Vec::new();
 
         ret.push(Cell::new(LHS, &str(stream.ip_number)));
         ret.push(Cell::new(LHS, " "));
@@ -263,8 +261,7 @@ impl UI {
                 true => stream.local_host.to_string(),
                 false => stream.local_addr.to_string()
             }));
-        }
-        else {
+        } else {
             ret.push(Cell::new(RHS, &match resolve {
                 true => format!("<{}>", stream.proc),
                 false => stream.local_addr.to_string()
@@ -322,8 +319,8 @@ impl UI {
         ret
     }
 
-    fn header(&self, total_bytes_sent: u64, total_bytes_recv: u64, elapsed: u64, resolve:bool) -> Vec<Cell> {
-        let mut ret:Vec<Cell> = Vec::new();
+    fn header(&self, total_bytes_sent: u64, total_bytes_recv: u64, elapsed: u64, resolve: bool) -> Vec<Cell> {
+        let mut ret: Vec<Cell> = Vec::new();
         ret.push(Cell::new(RHS, " "));
         ret.push(Cell::new(RHS, " "));
         ret.push(Cell::new(RHS, "host|<proc>"));
@@ -359,7 +356,7 @@ impl UI {
         ret
     }
 
-    fn footer(&self, q_depth:u64, dropped:u64) -> String {
+    fn footer(&self, q_depth: u64, dropped: u64) -> String {
         let period = REDRAW_PERIOD.fetch_sub(0, Relaxed);
         let sort = match SORT_BY.fetch_sub(0, Relaxed) {
             0 => "time",
@@ -371,11 +368,10 @@ impl UI {
                 LINES(), COLS(), q_depth, dropped, period, sort, paused)
     }
 
-    fn register_cmd(&self, c:char, desc: &str, cmd:fn()) {
+    fn register_cmd(&self, c: char, desc: &str, cmd: fn()) {
         CMDS.lock().unwrap().insert(c, cmd);
         CMD_INFO.lock().unwrap().insert(c, desc.to_string());
     }
-
 }
 
 fn keystroke_handler() {
@@ -389,7 +385,7 @@ fn keystroke_handler() {
     }
 }
 
-pub fn exit(code:i32, msg:String) {
+pub fn shutdown(code:i32, msg:String) {
     endwin();
     eprintln!("{}", msg);
     std::process::exit(code);
@@ -399,12 +395,12 @@ pub fn set_panic_hook() {
     panic::set_hook(Box::new(|panic_info| {
         let msg = format!("DIED: {:?} {}", panic_info, Backtrace::capture());
         if msg.contains("Operation not permitted") {
-            exit(-1, "Operation not permitted".to_string());
+            shutdown(-1, "Operation not permitted".to_string());
         }
         if msg.contains("Terminal too narrow") {
-            exit(-2, "Terminal too narrow".to_string());
+            shutdown(-2, "Terminal too narrow".to_string());
         }
-        exit(-3, msg);
+        shutdown(-3, msg);
     }));
 }
 
