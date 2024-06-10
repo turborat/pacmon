@@ -68,10 +68,12 @@ impl IpData {
             log(format!("ipdata::lookup::company[{}] took {:?}", addr, t1.elapsed()));
             if same_subnet(ip_int, subnet, company.bit_mask) {
               company.name.to_string()
-            }
+            } 
+            else if company.name.starts_with("MARINA BAY") {
+                "/".to_string()
+            } 
             else {
-                // compat mode - change this when confident
-                "~".to_owned() + &company.name.to_string()
+              "/".to_owned() + &company.name.to_string()
             }
         }
         else {
