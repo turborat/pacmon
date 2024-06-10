@@ -2,7 +2,7 @@ use std::{panic, sync, thread};
 use std::backtrace::Backtrace;
 use std::cmp::{max, min, Ordering};
 use std::collections::{BTreeMap, HashMap};
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64};
+use std::sync::atomic::{AtomicBool, AtomicI64};
 use std::sync::Mutex;
 use sync::atomic::Ordering::Relaxed;
 
@@ -26,22 +26,22 @@ static PAUSED:AtomicBool = AtomicBool::new(false);
 static SORT_BY:AtomicI64 = AtomicI64::new(0);
 
 pub struct UI {
-    start_time: AtomicI64,
-    last_draw: AtomicI64,
-    last_cols: AtomicI32
+    start_time: i64,
+    last_draw: i64,
+    last_cols: i32
 }
 
 impl UI {
     pub fn init() -> Self {
         set_panic_hook();
         UI {
-            start_time: AtomicI64::new(millitime()),
-            last_draw: AtomicI64::new(0),
-            last_cols: AtomicI32::new(0)
+            start_time: millitime(),
+            last_draw: 0,
+            last_cols: 0
         }
     }
 
-    pub fn show(&self) {
+    pub fn show(&mut self) {
         initscr();
         curs_set(CURSOR_VISIBILITY::CURSOR_INVISIBLE);
         refresh();
@@ -67,17 +67,17 @@ impl UI {
             .name("pacmon:key-stroker".to_string())
             .spawn(|| keystroke_handler());
 
-        self.start_time.store(millitime(), Relaxed);
+        self.start_time = millitime();
     }
 
-    pub fn should_redraw(&self) -> bool {
+    pub fn should_redraw(&mut self) -> bool {
         if REDRAW_REQUSTED.swap(false, Relaxed) {
             return true;
         }
 
-        if self.last_cols.fetch_sub(0, Relaxed) != COLS() {
+        if self.last_cols != COLS() {
             log("resize detected".to_string());
-            self.last_cols.store(COLS(), Relaxed);
+            self.last_cols = COLS();
             WIDTHS.lock().unwrap().clear();
             return true;
         }
@@ -89,18 +89,18 @@ impl UI {
         let now = millitime();
         let redraw_period = REDRAW_PERIOD.fetch_sub(0, Relaxed);
 
-        if now - self.start_time.fetch_sub(0, Relaxed) < 5000 {
-            return now - self.last_draw.fetch_sub(0, Relaxed) >= 100;
+        if now - self.start_time < 5000 {
+            return now - self.last_draw >= 100;
         }
 
-        if now - self.last_draw.fetch_sub(0, Relaxed) >= redraw_period {
+        if now - self.last_draw >= redraw_period {
             return true;
         }
 
         return false;
     }
 
-    pub fn draw(&self, streams: &mut BTreeMap<StreamKey, PacStream>, q_depth: u64, dropped: u64) {
+    pub fn draw(&mut self, streams: &mut BTreeMap<StreamKey, PacStream>, q_depth: u64, dropped: u64) {
         let now = millitime();
         let mut pac_vec: Vec<PacStream> = streams.values().cloned().collect();
 
@@ -115,7 +115,7 @@ impl UI {
         }
 
         let widths = { WIDTHS.lock().unwrap().clone() };
-        let interval = (now - self.last_draw.fetch_add(0, Relaxed)) as u64;
+        let interval = (now - self.last_draw) as u64;
 
         if HELP.fetch_and(true, Relaxed) {
             self.render_help(&pac_vec, widths, q_depth, dropped, interval);
@@ -123,7 +123,7 @@ impl UI {
             self.render_normal(&pac_vec, widths, q_depth, dropped, interval);
         }
 
-        self.last_draw.store(now, Relaxed);
+        self.last_draw = now;
     }
 
     fn render_help(&self, pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64, interval: u64) {
@@ -146,7 +146,7 @@ impl UI {
         let mut tt = vec![
             format!("     q depth: {:<8} pacs drop'd: {}", q_depth, dropped),
             format!("     resolve: {:<8} pause: {:?}", resolve.to_string(), pause),
-            format!("   last_draw: {}", fmt_millis(self.last_draw.fetch_sub(0, Relaxed))),
+            format!("   last_draw: {}", fmt_millis(self.last_draw)),
             format!("        recv: {:<8} sent:{:<8} interval: {:?}",
                     speed(bytes_recv_last, interval), speed(bytes_sent_last, interval), interval),
             format!("      widths: {:?}", widths),

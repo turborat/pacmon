@@ -43,7 +43,7 @@ pub fn run(args: HashSet<String>) {
     let mut q_max = 0u64;
     let mut running = false;
 
-    let ui = UI::init();
+    let mut ui = UI::init();
 
     ui::set_panic_hook();
 
