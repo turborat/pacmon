@@ -67,30 +67,22 @@ impl IpData {
         if let Some((&subnet, &ref company)) = self.companies.range(..=ip_int).next_back() {
             log(format!("ipdata::lookup::company[{}] took {:?}", addr, t1.elapsed()));
             if same_subnet(ip_int, subnet, company.bit_mask) {
-              company.name.to_string()
+              return company.name.to_string();
             } 
-            else if company.name.starts_with("MARINA BAY") {
-                "/".to_string()
-            } 
-            else {
-              "/".to_owned() + &company.name.to_string()
-            }
         }
-        else {
-          "o".to_string()
-        }
+        return "?".to_string(); 
     }
 
-    pub fn location(&self, addr:&IpAddr) -> Option<&Location> {
+    pub fn cc(&self, addr:&IpAddr) -> String {
         let t1 = Instant::now();
         let ip_int = addr_to_int(addr);
         if let Some((&subnet, &ref location)) = self.locations.range(..=ip_int).next_back() {
             log(format!("ipdata::lookup::location[{}] took {:?}", addr, t1.elapsed()));
             if same_subnet(ip_int, subnet, location.bit_mask) {
-              return Some(location);
+              return location.country.to_string();
             }
         }
-        None
+        return "?".to_string(); 
     }
 }
 
