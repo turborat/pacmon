@@ -15,25 +15,29 @@ use crate::pacdat::StreamKey;
 use crate::pacstream::PacStream;
 use crate::ui::Justify::{LHS, RHS};
 
-static WIDTHS: Mutex<Lazy<Vec<i16>>> = Mutex::new(Lazy::new(||vec![]));
 static CMDS:Mutex<Lazy<HashMap<char,fn()>>> = Mutex::new(Lazy::new(||HashMap::new()));static CMD_INFO:Mutex<Lazy<BTreeMap<char,String>>> = Mutex::new(Lazy::new(||BTreeMap::new()));
-static START_TIME:AtomicI64 = AtomicI64::new(0);
-static LAST_DRAW:AtomicI64 = AtomicI64::new(0);
-static LAST_COLS:AtomicI32 = AtomicI32::new(0); // used to detect resize
-static SORT_BY:AtomicI64 = AtomicI64::new(0);
+static WIDTHS: Mutex<Lazy<Vec<i16>>> = Mutex::new(Lazy::new(||vec![]));
+
 static REDRAW_REQUSTED:AtomicBool = AtomicBool::new(false);
 static REDRAW_PERIOD:AtomicI64 = AtomicI64::new(3000);
 static RESOLVE:AtomicBool = AtomicBool::new(true);
 static HELP:AtomicBool = AtomicBool::new(false);
 static PAUSED:AtomicBool = AtomicBool::new(false);
+static LAST_COLS:AtomicI32 = AtomicI32::new(0); // used to detect resize
+static SORT_BY:AtomicI64 = AtomicI64::new(0);
 
 pub struct UI {
+    start_time: AtomicI64,
+    last_draw: AtomicI64
 }
 
 impl UI {
     pub fn init() -> Self {
         set_panic_hook();
-        UI{}
+        UI {
+            start_time: AtomicI64::new(millitime()),
+            last_draw: AtomicI64::new(0)
+        }
     }
 
     pub fn show(&self) {
@@ -62,7 +66,7 @@ impl UI {
             .name("pacmon:key-stroker".to_string())
             .spawn(keystroke_handler);
 
-        START_TIME.store(millitime(), Relaxed);
+        self.start_time.store(millitime(), Relaxed);
     }
 
     pub fn should_redraw(&self) -> bool {
@@ -84,11 +88,11 @@ impl UI {
         let now = millitime();
         let redraw_period = REDRAW_PERIOD.fetch_sub(0, Relaxed);
 
-        if now - START_TIME.fetch_sub(0, Relaxed) < 5000 {
-            return now - LAST_DRAW.fetch_sub(0, Relaxed) >= 100;
+        if now - self.start_time.fetch_sub(0, Relaxed) < 5000 {
+            return now - self.last_draw.fetch_sub(0, Relaxed) >= 100;
         }
 
-        if now - LAST_DRAW.fetch_sub(0, Relaxed) >= redraw_period {
+        if now - self.last_draw.fetch_sub(0, Relaxed) >= redraw_period {
             return true;
         }
 
@@ -111,7 +115,7 @@ impl UI {
         }
 
         let widths = { WIDTHS.lock().unwrap().clone() };
-        let interval = (now - LAST_DRAW.fetch_add(0, Relaxed)) as u64;
+        let interval = (now - self.last_draw.fetch_add(0, Relaxed)) as u64;
 
         if HELP.fetch_and(true, Relaxed) {
             self.render_help(&pac_vec, widths, q_depth, dropped, interval);
@@ -120,7 +124,7 @@ impl UI {
             self.render_normal(&pac_vec, widths, q_depth, dropped, interval);
         }
 
-        LAST_DRAW.store(now, Relaxed);
+        self.last_draw.store(now, Relaxed);
     }
 
     fn render_help(&self, pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64, interval: u64) {
@@ -143,7 +147,7 @@ impl UI {
         let mut tt = vec![
             format!("     q depth: {:<8} pacs drop'd: {}", q_depth, dropped),
             format!("     resolve: {:<8} pause: {:?}", resolve.to_string(), pause),
-            format!("   last_draw: {}", fmt_millis(LAST_DRAW.fetch_sub(0, Relaxed))),
+            format!("   last_draw: {}", fmt_millis(self.last_draw.fetch_sub(0, Relaxed))),
             format!("        recv: {:<8} sent:{:<8} interval: {:?}",
                     speed(bytes_recv_last, interval), speed(bytes_sent_last, interval), interval),
             format!("      widths: {:?}", widths),
