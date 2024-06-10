@@ -13,13 +13,7 @@ mod pcap;
 mod ipdata;
 
 fn main() {
-    match env::var("USER") {
-        Ok(username) => if !username.eq("root") {
-            eprintln!("Pacmon does not cater to the underprivileged. Sorry.");
-            std::process::exit(-99);
-        }
-        Err(_) => {}
-    }
+    check_user();
 
     let args: HashSet<String> = env::args().collect();
     if args.contains("-x") {
@@ -27,6 +21,16 @@ fn main() {
     }
     else {
         pacmon::run(args);
+    }
+}
+
+fn check_user() {
+    match env::var("USER") {
+        Ok(username) => if !username.eq("root") {
+            eprintln!("Pacmon does not cater to the underprivileged. Sorry.");
+            std::process::exit(-99);
+        }
+        Err(_) => {}
     }
 }
 
