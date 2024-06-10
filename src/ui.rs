@@ -90,10 +90,10 @@ impl UI {
         let redraw_period = REDRAW_PERIOD.fetch_sub(0, Relaxed);
 
         if now - self.start_time < 5000 {
-            return now - self.last_draw >= 100;
+            return now - self.last_draw > 99;
         }
 
-        if now - self.last_draw >= redraw_period {
+        if now - self.last_draw > redraw_period {
             return true;
         }
 
