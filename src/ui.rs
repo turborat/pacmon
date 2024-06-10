@@ -19,13 +19,13 @@ static WIDTHS: Mutex<Lazy<Vec<i16>>> = Mutex::new(Lazy::new(||vec![]));
 static CMDS:Mutex<Lazy<HashMap<char,fn()>>> = Mutex::new(Lazy::new(||HashMap::new()));static CMD_INFO:Mutex<Lazy<BTreeMap<char,String>>> = Mutex::new(Lazy::new(||BTreeMap::new()));
 static START_TIME:AtomicI64 = AtomicI64::new(0);
 static LAST_DRAW:AtomicI64 = AtomicI64::new(0);
+static LAST_COLS:AtomicI32 = AtomicI32::new(0); // used to detect resize
+static SORT_BY:AtomicI64 = AtomicI64::new(0);
 static REDRAW_REQUSTED:AtomicBool = AtomicBool::new(false);
 static REDRAW_PERIOD:AtomicI64 = AtomicI64::new(3000);
 static RESOLVE:AtomicBool = AtomicBool::new(true);
 static HELP:AtomicBool = AtomicBool::new(false);
 static PAUSED:AtomicBool = AtomicBool::new(false);
-static SORT_BY:AtomicI64 = AtomicI64::new(0);
-static COLSS:AtomicI32 = AtomicI32::new(0); // used to detect resize
 
 pub fn exit(code:i32, msg:String) {
     endwin();
@@ -85,9 +85,9 @@ pub fn should_redraw() -> bool {
         return true;
     }
 
-    if COLSS.fetch_sub(0, Relaxed) != COLS() {
+    if LAST_COLS.fetch_sub(0, Relaxed) != COLS() {
       log("resize detected".to_string());
-      COLSS.store(COLS(), Relaxed);
+      LAST_COLS.store(COLS(), Relaxed);
       WIDTHS.lock().unwrap().clear();
       return true;  
     }
