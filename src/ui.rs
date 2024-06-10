@@ -501,11 +501,12 @@ fn massage_corp(txt:&mut String, target_width:usize) {
         txt.truncate(target_width);
     }
 
-    while txt.ends_with(" ") {
+    while txt.ends_with(" ") || txt.ends_with(",") {
         txt.truncate(txt.len()-1);
     }
 
     while txt.len() < target_width {
+        // shouldn't be necessary - revisit "widths"
         txt.insert(0, ' ');
     }
 }
