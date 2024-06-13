@@ -30,33 +30,32 @@ impl IpData {
     pub fn new() -> Self {
         let mut companies: BTreeMap<u128, Company> = BTreeMap::new();
         {
-            let load = Instant::now();
+            let start = Instant::now();
             let ccc = companies::load();
-            log(format!("ipdata::load::companies took {:?}", load.elapsed()));
-
-            let insert = Instant::now();
             for cc in ccc {
                 companies.insert(cc.0, Company { 
                   bit_mask: bit_mask(cc.1, mask_width(cc.0)), 
                   name: cc.2.to_string() 
                 });
             }
-            log(format!("ipdata::insert::companies took {:?}", insert.elapsed()));
+            log(format!("ipdata::insert::companies took {:?}", start.elapsed()));
         }
 
-        let loc_start = Instant::now();
         let mut locations: BTreeMap<u128, Location> = BTreeMap::new();
-        for ccc in [locations1::load, locations2::load, locations3::load, locations4::load]
         {
-            for cc in ccc() {
-                locations.insert(cc.0, Location {
-                    bit_mask: bit_mask(cc.1, mask_width(cc.0)),
-                    country:cc.2.to_string(),
-                    city:cc.3.to_string()
-                });
-            }
+          let start = Instant::now();
+          for loader in [locations1::load, locations2::load, locations3::load, locations4::load]
+          {
+              for cc in loader() {
+                  locations.insert(cc.0, Location {
+                      bit_mask: bit_mask(cc.1, mask_width(cc.0)),
+                      country:cc.2.to_string(),
+                      city:cc.3.to_string()
+                  });
+              }
+          }
+          log(format!("ipdata::insert::locations took {:?}", start.elapsed()));
         }
-        log(format!("ipdata::insert::locations took {:?}", loc_start.elapsed()));
 
         IpData { companies, locations }
     }

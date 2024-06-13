@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, AtomicI64};
 use std::sync::Mutex;
 use sync::atomic::Ordering::Relaxed;
 
-use chrono::{Local, Utc};
+use chrono::{Local};
 use ncurses::*;
 use once_cell::sync::Lazy;
 
@@ -19,7 +19,7 @@ static CMDS:Mutex<Lazy<HashMap<char,fn()>>> = Mutex::new(Lazy::new(||HashMap::ne
 static WIDTHS: Mutex<Lazy<Vec<i16>>> = Mutex::new(Lazy::new(||vec![]));
 
 static REDRAW_REQUSTED:AtomicBool = AtomicBool::new(false);
-static REDRAW_PERIOD:AtomicI64 = AtomicI64::new(3000);
+static REDRAW_PERIOD:AtomicI64 = AtomicI64::new(2000);
 static RESOLVE:AtomicBool = AtomicBool::new(true);
 static HELP:AtomicBool = AtomicBool::new(false);
 static PAUSED:AtomicBool = AtomicBool::new(false);
@@ -61,7 +61,7 @@ impl UI {
         self.register_cmd('7', "7s", || REDRAW_PERIOD.store(7000, Relaxed));
         self.register_cmd('8', "8s", || REDRAW_PERIOD.store(8000, Relaxed));
         self.register_cmd('9', "9s", || REDRAW_PERIOD.store(9000, Relaxed));
-        self.register_cmd('0', "<1s", || REDRAW_PERIOD.store(250, Relaxed));
+        self.register_cmd('0', "<1s", || REDRAW_PERIOD.store(200, Relaxed));
 
         let _ = thread::Builder::new()
             .name("pacmon:key-stroker".to_string())
@@ -169,7 +169,7 @@ impl UI {
             mvprintw(i as i32 + y_offset, x_offset, &tt[i]);
         }
 
-        mvprintw(LINES() - 1, COLS() - 19, &format!("{:?}", Utc::now().time()));
+        mvprintw(LINES() - 1, COLS() - 19, &format!("{:?}", Local::now().time()));
 
         refresh();
     }
@@ -195,7 +195,8 @@ impl UI {
         let render_len = widths.iter().sum::<i16>();
         let deficit = COLS() as i16 - render_len;
         let total = widths[2] + widths[6] + deficit;
-        widths[2 /*local-host*/] = (total as f32 * 0.4) as i16;
+        let ratio = 0.45;   // local :: remote 
+        widths[2 /*local-host*/] = (total as f32 * ratio) as i16;
         widths[6 /*remote-host*/] = total - widths[2 /*local-host*/];
 
         clear();
@@ -237,7 +238,7 @@ impl UI {
 
         pad(COLS() - footer.len() as i32);
 
-        mvprintw(LINES() - 1, COLS() - 8, &format!("{:?}", Local::now().time()));
+        mvprintw(LINES() - 1, COLS() - 12, &format!("{:?}", Local::now().time()));
 
         attroff(A_REVERSE());
 
@@ -312,7 +313,7 @@ impl UI {
         ret.push(Cell::new(RHS, &stream.cc));
 
         let mut corp = stream.corp.to_string();
-        massage_corp(&mut corp, (COLS() as f32 * 0.13) as usize);
+        massage_corp(&mut corp, (COLS() as f32 * 0.14) as usize);
         ret.push(Cell::new(RHS, ""));
         ret.push(Cell::new(RHS, &corp));
 
@@ -455,6 +456,7 @@ fn compute_widths(matrix:&Vec<Vec<Cell>>, prev_widths:&Vec<i16>) -> Vec<i16> {
     ret
 }
 
+// returns the domain part of a url
 fn trim_host(host:&String) -> String {
     if host.len() <= 4*3+3 {
         return host.to_string();
