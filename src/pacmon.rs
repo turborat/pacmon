@@ -89,10 +89,11 @@ pub fn run(args: HashSet<String>) {
     // t.join().unwrap();
 }
 
-fn stream_for<'a>(pac_dat:&'a PacDat, streams:&'a mut BTreeMap<StreamKey, PacStream>)
+fn stream_for<'a>(pac_dat:&'a PacDat, streams:&'a mut BTreeMap<StreamKey, PacStream>, resolver:&mut Resolver)
     -> &'a mut PacStream {
     let key = pac_dat.key();
-    streams.entry(key).or_insert_with(|| PacStream::new(&pac_dat))
+    let stream = streams.entry(key).or_insert_with(|| PacStream::new(&pac_dat).resolve(resolver));
+    stream
 }
 
 fn tally(pac_dat: &mut PacDat, streams:&mut BTreeMap<StreamKey, PacStream>, resolver:&mut Resolver, interfaces:&BTreeSet<(IpAddr, IpAddr)>) {
@@ -108,10 +109,7 @@ fn tally(pac_dat: &mut PacDat, streams:&mut BTreeMap<StreamKey, PacStream>, reso
         }
     }
 
-    let stream = stream_for(&pac_dat, streams);
-    if stream.bytes() == 0 {
-        stream.resolve(resolver);
-    }
+    let stream = stream_for(&pac_dat, streams, resolver);
     stream.tally(&pac_dat);
 }
 

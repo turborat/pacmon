@@ -109,7 +109,7 @@ impl PacStream {
         etc::fmt_duration(duration)
     }
 
-    pub fn resolve(&mut self, resolver: &mut Resolver) {
+    pub fn resolve(&mut self, resolver: &mut Resolver) -> PacStream {
         if self.foreign {
             self.proc = "this should never be displayed".to_string();
         }
@@ -135,5 +135,6 @@ impl PacStream {
             self.cc = resolver.resolve_cc(&self.remote_addr);
             self.corp = resolver.resolve_comany(&self.remote_addr);
         }
+        self.to_owned()
     }
 }

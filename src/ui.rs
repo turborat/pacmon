@@ -10,7 +10,7 @@ use chrono::{Local};
 use ncurses::*;
 use once_cell::sync::Lazy;
 
-use crate::etc::{fmt_millis, log, mag_fmt, millitime, str};
+use crate::etc::{fmt_millis, log, mag_fmt, millitime};
 use crate::pacdat::StreamKey;
 use crate::pacstream::PacStream;
 use crate::ui::Justify::{LHS, RHS};
@@ -203,6 +203,29 @@ impl UI {
 
         clear();
 
+        Self::print_matrix(&mut matrix, &mut widths);
+
+        attron(A_REVERSE());
+
+        let footer = self.footer(q_depth, dropped);
+        mvprintw(LINES() - 1, 0, &footer);
+
+        pad(COLS() - footer.len() as i32);
+
+        mvprintw(LINES() - 1, COLS() - 12, &format!("{:?}", Local::now().time()));
+
+        attroff(A_REVERSE());
+
+        refresh();
+
+        {
+            let mut prev_widths = WIDTHS.lock().unwrap();
+            prev_widths.clear();
+            prev_widths.extend(widths);
+        }
+    }
+
+    fn print_matrix(matrix: &mut Vec<Vec<Cell>>, widths: &mut Vec<i16>) {
         for i in 0..matrix.len() {
             let row = matrix.get(i).unwrap();
             let mut x = 0i32;
@@ -231,25 +254,6 @@ impl UI {
 
                 x += *width as i32;
             }
-        }
-
-        attron(A_REVERSE());
-
-        let footer = self.footer(q_depth, dropped);
-        mvprintw(LINES() - 1, 0, &footer);
-
-        pad(COLS() - footer.len() as i32);
-
-        mvprintw(LINES() - 1, COLS() - 12, &format!("{:?}", Local::now().time()));
-
-        attroff(A_REVERSE());
-
-        refresh();
-
-        {
-            let mut prev_widths = WIDTHS.lock().unwrap();
-            prev_widths.clear();
-            prev_widths.extend(widths);
         }
     }
 
