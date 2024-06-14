@@ -116,19 +116,19 @@ impl UI {
             stream.reset_stats();
         }
 
-        let widths = { WIDTHS.lock().unwrap().clone() };
+        let prev_widths = { WIDTHS.lock().unwrap().clone() };
         let interval = (now - self.last_draw) as u64;
 
         if HELP.fetch_and(true, Relaxed) {
-            self.render_help(&pac_vec, widths, q_depth, dropped, interval);
+            self.print_help(&pac_vec, prev_widths, q_depth, dropped, interval);
         } else {
-            self.render_normal(&pac_vec, widths, q_depth, dropped, interval);
+            self.print_normal(&pac_vec, prev_widths, q_depth, dropped, interval);
         }
 
         self.last_draw = now;
     }
 
-    fn render_help(&self, pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64, interval: u64) {
+    fn print_help(&self, pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64, interval: u64) {
         clear();
 
         mvaddch(0, 0, ACS_ULCORNER());
@@ -176,7 +176,7 @@ impl UI {
         refresh();
     }
 
-    fn render_normal(&self, pac_vec: &Vec<PacStream>, widths: Vec<i16>, q_depth: u64, dropped: u64, interval: u64) {
+    fn print_normal(&self, pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u64, dropped: u64, interval: u64) {
         let nrows = min(pac_vec.len(), (LINES() - 2) as usize);
         let mut matrix: Vec<Vec<Cell>> = Vec::new();
 
@@ -184,14 +184,14 @@ impl UI {
         let bytes_recv_last: u64 = pac_vec.iter().map(|s| s.bytes_recv_last).sum();
 
         let resolve = RESOLVE.fetch_and(true, Relaxed);
-        matrix.push(self.header(bytes_sent_last, bytes_recv_last, interval, resolve));
+        matrix.push(self.render_header(bytes_sent_last, bytes_recv_last, interval, resolve));
 
         for i in 0..nrows {
             let row = self.render_row(&pac_vec[i], bytes_sent_last, bytes_recv_last, resolve, interval);
             matrix.push(row);
         }
 
-        let mut widths = compute_widths(&matrix, &widths);
+        let mut widths = compute_widths(&matrix, &prev_widths);
 
         // hack hack hack hack hack hack hack - to line things up //
         let render_len = widths.iter().sum::<i16>();
@@ -205,16 +205,7 @@ impl UI {
 
         Self::print_matrix(&mut matrix, &mut widths);
 
-        attron(A_REVERSE());
-
-        let footer = self.footer(q_depth, dropped);
-        mvprintw(LINES() - 1, 0, &footer);
-
-        pad(COLS() - footer.len() as i32);
-
-        mvprintw(LINES() - 1, COLS() - 12, &format!("{:?}", Local::now().time()));
-
-        attroff(A_REVERSE());
+        self.print_footer(q_depth, dropped);
 
         refresh();
 
@@ -323,7 +314,7 @@ impl UI {
         ret
     }
 
-    fn header(&self, total_bytes_sent: u64, total_bytes_recv: u64, elapsed: u64, resolve: bool) -> Vec<Cell> {
+    fn render_header(&self, total_bytes_sent: u64, total_bytes_recv: u64, elapsed: u64, resolve: bool) -> Vec<Cell> {
         let mut ret: Vec<Cell> = Vec::new();
         ret.push(Cell::new(RHS, "host|<proc>"));
         ret.push(Cell::new(LHS, ":"));
@@ -358,7 +349,7 @@ impl UI {
         ret
     }
 
-    fn footer(&self, q_depth: u64, dropped: u64) -> String {
+    fn render_footer(&self, q_depth: u64, dropped: u64) -> String {
         let period = REDRAW_PERIOD.fetch_sub(0, Relaxed);
         let sort = match SORT_BY.fetch_sub(0, Relaxed) {
             0 => "time",
@@ -433,17 +424,12 @@ fn pad(n:i32) {
 
 fn compute_widths(matrix:&Vec<Vec<Cell>>, prev_widths:&Vec<i16>) -> Vec<i16> {
     let mut ret:Vec<i16> = Vec::new();
-
     for i in 0..matrix.len() {
         for j in 0..matrix.get(i).unwrap().len() {
             let cell = matrix.get(i).unwrap().get(j).unwrap();
             match ret.get(j) {
-                Some(len) => {
-                    ret[j] = max(cell.width(), *len);
-                }
-                None => {
-                    ret.insert(j, cell.width());
-                }
+                Some(len) => ret[j] = max(cell.width(), *len),
+                None => ret.insert(j, cell.width())
             }
         }
     }
