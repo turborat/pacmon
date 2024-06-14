@@ -289,19 +289,21 @@ impl UI {
         }));
 
         ret.push(Cell::new(RHS, " "));
+
         ret.push(Cell::new(RHS, &pct_fmt(stream.bytes_recv_last as f64 / total_bytes_recv as f64)));
         ret.push(Cell::new(RHS, " "));
         ret.push(Cell::new(RHS, &speed(stream.bytes_recv_last, elapsed)));
         ret.push(Cell::new(RHS, " ("));
         ret.push(Cell::new(RHS, &mag_fmt(stream.bytes_recv)));
         ret.push(Cell::new(RHS, ") "));
-
         ret.push(Cell::new(RHS, &pct_fmt(stream.bytes_sent_last as f64 / total_bytes_sent as f64)));
         ret.push(Cell::new(RHS, " "));
         ret.push(Cell::new(RHS, &speed(stream.bytes_sent_last, elapsed)));
         ret.push(Cell::new(RHS, " ("));
         ret.push(Cell::new(RHS, &mag_fmt(stream.bytes_sent)));
-        ret.push(Cell::new(RHS, ") "));
+        ret.push(Cell::new(RHS, ")"));
+
+        ret.push(Cell::new(RHS, " "));
         ret.push(Cell::new(RHS, &stream.age()));
         ret.push(Cell::new(RHS, " "));
         ret.push(Cell::new(RHS, &stream.cc));
@@ -327,9 +329,20 @@ impl UI {
             false => "port"
         }));
         ret.push(Cell::new(RHS, " "));
+        Self::render_stats_header(total_bytes_sent, total_bytes_recv, elapsed, &mut ret);
+        ret.push(Cell::new(LHS, ""));
+        ret.push(Cell::new(RHS, "age"));
+        ret.push(Cell::new(LHS, ""));
+        ret.push(Cell::new(RHS, "cc"));
+        ret.push(Cell::new(RHS, " "));
+        ret.push(Cell::new(RHS, "corp"));
+
+        ret
+    }
+
+    fn render_stats_header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: u64, ret: &mut Vec<Cell>) {
         ret.push(Cell::new(RHS, "in"));
         ret.push(Cell::new(RHS, ":"));
-
         ret.push(Cell::new(RHS, &speed(total_bytes_recv, elapsed)));
         ret.push(Cell::new(RHS, ""));
         ret.push(Cell::new(LHS, ""));
@@ -340,13 +353,6 @@ impl UI {
         ret.push(Cell::new(LHS, ""));
         ret.push(Cell::new(LHS, ""));
         ret.push(Cell::new(LHS, ""));
-        ret.push(Cell::new(RHS, "age"));
-        ret.push(Cell::new(LHS, ""));
-        ret.push(Cell::new(RHS, "cc"));
-        ret.push(Cell::new(RHS, " "));
-        ret.push(Cell::new(RHS, "corp"));
-
-        ret
     }
 
     fn render_footer(&self, q_depth: u64, dropped: u64) -> String {
