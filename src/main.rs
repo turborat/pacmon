@@ -16,7 +16,10 @@ fn main() {
     check_user();
 
     let args: HashSet<String> = env::args().collect();
-    if args.contains("-x") {
+    if args.contains("-h") {
+        help(); 
+    }
+    else if args.contains("-x") {
         special_processing()
     }
     else {
@@ -27,11 +30,19 @@ fn main() {
 fn check_user() {
     match env::var("USER") {
         Ok(username) => if !username.eq("root") {
-            eprintln!("Pacmon does not cater to the underprivileged. Sorry.");
+            eprintln!("Pacmon does not cater to the underprivileged");
             std::process::exit(-99);
         }
         Err(_) => {}
     }
+}
+
+fn help() {
+    println!("options:");
+    println!("   -l     create ./pacmon.log");
+    println!("   -x     invoke addr_to_int on stdin. see code for details");
+    println!("   -h     this");
+    std::process::exit(-98);
 }
 
 fn special_processing() {

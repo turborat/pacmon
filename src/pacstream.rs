@@ -98,6 +98,7 @@ impl PacStream {
     }
 
     pub fn age(&self) -> String {
+        // in case the interval is > 1s
         if self.bytes_last() > 0 {
             return ".".to_string();
         }

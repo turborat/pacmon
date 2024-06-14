@@ -62,6 +62,8 @@ impl UI {
         self.register_cmd('8', "8s", || REDRAW_PERIOD.store(8000, Relaxed));
         self.register_cmd('9', "9s", || REDRAW_PERIOD.store(9000, Relaxed));
         self.register_cmd('0', "<1s", || REDRAW_PERIOD.store(200, Relaxed));
+        self.register_cmd(66 as char, "interval--", || { REDRAW_PERIOD.fetch_add(-9, Relaxed) ;});
+        self.register_cmd(65 as char, "interval++", || { REDRAW_PERIOD.fetch_add( 9, Relaxed) ;});
 
         let _ = thread::Builder::new()
             .name("pacmon:key-stroker".to_string())
@@ -75,7 +77,7 @@ impl UI {
             return true;
         }
 
-        if self.last_cols != COLS() {
+        if self.last_cols != COLS() { // unreliable ??
             log("resize detected".to_string());
             self.last_cols = COLS();
             WIDTHS.lock().unwrap().clear();
@@ -254,9 +256,6 @@ impl UI {
     fn render_row(&self, stream: &PacStream, total_bytes_sent: u64, total_bytes_recv: u64, resolve: bool, elapsed: u64) -> Vec<Cell> {
         let mut ret: Vec<Cell> = Vec::new();
 
-        ret.push(Cell::new(LHS, &str(stream.ip_number)));
-        ret.push(Cell::new(LHS, " "));
-
         if stream.foreign {
             ret.push(Cell::new(RHS, &match resolve {
                 true => stream.local_host.to_string(),
@@ -322,8 +321,6 @@ impl UI {
 
     fn header(&self, total_bytes_sent: u64, total_bytes_recv: u64, elapsed: u64, resolve: bool) -> Vec<Cell> {
         let mut ret: Vec<Cell> = Vec::new();
-        ret.push(Cell::new(RHS, " "));
-        ret.push(Cell::new(RHS, " "));
         ret.push(Cell::new(RHS, "host|<proc>"));
         ret.push(Cell::new(LHS, ":"));
         ret.push(Cell::new(LHS, "port"));
@@ -365,7 +362,7 @@ impl UI {
             _ => panic!("dead")
         };
         let paused = PAUSED.fetch_and(true, Relaxed);
-        format!("{}x{} q:{} drop'd:{} refresh:{}ms sort:{} pause:{}",
+        format!("{}x{} q:{} drop'd:{} interval:{}ms sort:{} pause:{}",
                 LINES(), COLS(), q_depth, dropped, period, sort, paused)
     }
 
