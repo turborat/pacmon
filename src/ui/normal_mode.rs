@@ -1,10 +1,10 @@
 use std::cmp::min;
 use std::sync::atomic::Ordering::Relaxed;
 use ncurses::{clear, COLS, LINES, refresh};
-use crate::etc::mag_fmt;
+use ui::{compute_widths, print_footer, print_matrix};
 use crate::pacstream::PacStream;
 use crate::ui;
-use crate::ui::{Cell, massage_corp, pct_fmt, RESOLVE, speed, trim_host, UI, WIDTHS};
+use crate::ui::{Cell, massage_corp, pct_fmt, RESOLVE, speed, stats, trim_host, UI, WIDTHS};
 use crate::ui::Justify::{LHS, RHS};
 
 pub(crate) fn print(pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u64, dropped: u64, interval: u64) {
@@ -22,7 +22,7 @@ pub(crate) fn print(pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u6
         matrix.push(row);
     }
 
-    let mut widths = ui::compute_widths(&matrix, &prev_widths);
+    let mut widths = compute_widths(&matrix, &prev_widths);
 
     // hack hack hack hack hack hack hack - to line things up //
     let render_len = widths.iter().sum::<i16>();
@@ -36,9 +36,9 @@ pub(crate) fn print(pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u6
 
     clear();
 
-    ui::print_matrix(&mut matrix, &mut widths);
+    print_matrix(&mut matrix, &mut widths);
 
-    ui::print_footer(q_depth, dropped);
+    print_footer(q_depth, dropped);
 
     refresh();
 
@@ -50,37 +50,37 @@ pub(crate) fn print(pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u6
 }
 
 fn render_row(stream: &PacStream, total_bytes_sent: u64, total_bytes_recv: u64, resolve: bool, elapsed: u64) -> Vec<Cell> {
-    let mut ret: Vec<Cell> = Vec::new();
+    let mut row: Vec<Cell> = Vec::new();
 
     if stream.foreign {
-        ret.push(Cell::new(RHS, &match resolve {
+        row.push(Cell::new(RHS, &match resolve {
             true => stream.local_host.to_string(),
             false => stream.local_addr.to_string()
         }));
     } else {
-        ret.push(Cell::new(RHS, &match resolve {
+        row.push(Cell::new(RHS, &match resolve {
             true => format!("<{}>", stream.proc),
             false => stream.local_addr.to_string()
         }));
     }
 
-    ret.push(Cell::new(LHS, ":"));
+    row.push(Cell::new(LHS, ":"));
 
-    ret.push(Cell::new(LHS, &match resolve {
+    row.push(Cell::new(LHS, &match resolve {
         true => stream.local_service.to_string(),
         false => stream.local_port.to_string()
     }));
 
-    ret.push(Cell::new(LHS, " "));
+    row.push(Cell::new(LHS, " "));
 
-    ret.push(Cell::new(RHS, &match resolve {
+    row.push(Cell::new(RHS, &match resolve {
         true => trim_host(&stream.remote_host),
         false => stream.remote_addr.to_string()
     }));
 
-    ret.push(Cell::new(LHS, ":"));
+    row.push(Cell::new(LHS, ":"));
 
-    ret.push(Cell::new(LHS, &match resolve {
+    row.push(Cell::new(LHS, &match resolve {
         true => {
             let mut ss = stream.remote_service.to_string();
             ss.truncate(6);
@@ -89,56 +89,40 @@ fn render_row(stream: &PacStream, total_bytes_sent: u64, total_bytes_recv: u64, 
         false => stream.remote_port.to_string()
     }));
 
-    ret.push(Cell::new(RHS, " "));
-
-    ret.push(Cell::new(RHS, &pct_fmt(stream.bytes_recv_last as f64 / total_bytes_recv as f64)));
-    ret.push(Cell::new(RHS, " "));
-    ret.push(Cell::new(RHS, &speed(stream.bytes_recv_last, elapsed)));
-    ret.push(Cell::new(RHS, " ("));
-    ret.push(Cell::new(RHS, &mag_fmt(stream.bytes_recv)));
-    ret.push(Cell::new(RHS, ") "));
-    ret.push(Cell::new(
-        RHS,
-        &pct_fmt(stream.bytes_sent_last as f64 / total_bytes_sent as f64)
-    ));
-    ret.push(Cell::new(RHS, " "));
-    ret.push(Cell::new(RHS, &speed(stream.bytes_sent_last, elapsed)));
-    ret.push(Cell::new(RHS, " ("));
-    ret.push(Cell::new(RHS, &mag_fmt(stream.bytes_sent)));
-    ret.push(Cell::new(RHS, ")"));
-
-    ret.push(Cell::new(RHS, " "));
-    ret.push(Cell::new(RHS, &stream.age()));
-    ret.push(Cell::new(RHS, " "));
-    ret.push(Cell::new(RHS, &stream.cc));
+    row.push(Cell::new(RHS, " "));
+    stats::add(&mut row, &stream, total_bytes_sent, total_bytes_recv, elapsed);
+    row.push(Cell::new(RHS, " "));
+    row.push(Cell::new(RHS, &stream.age()));
+    row.push(Cell::new(RHS, " "));
+    row.push(Cell::new(RHS, &stream.cc));
 
     let mut corp = stream.corp.to_string();
     massage_corp(&mut corp, (COLS() as f32 * 0.14) as usize);
-    ret.push(Cell::new(RHS, ""));
-    ret.push(Cell::new(RHS, &corp));
+    row.push(Cell::new(RHS, ""));
+    row.push(Cell::new(RHS, &corp));
 
-    ret
+    row
 }
 
 fn render_header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: u64, resolve: bool) -> Vec<Cell> {
-    let mut ret: Vec<Cell> = Vec::new();
-    ret.push(Cell::new(RHS, "host|<proc>"));
-    ret.push(Cell::new(LHS, ":"));
-    ret.push(Cell::new(LHS, "port"));
-    ret.push(Cell::new(LHS, " "));
-    ret.push(Cell::new(RHS, "remote-host"));
-    ret.push(Cell::new(LHS, ":"));
-    ret.push(Cell::new(LHS, match resolve {
+    let mut row: Vec<Cell> = Vec::new();
+    row.push(Cell::new(RHS, "host|<proc>"));
+    row.push(Cell::new(LHS, ":"));
+    row.push(Cell::new(LHS, "port"));
+    row.push(Cell::new(LHS, " "));
+    row.push(Cell::new(RHS, "remote-host"));
+    row.push(Cell::new(LHS, ":"));
+    row.push(Cell::new(LHS, match resolve {
         true => "svc",
         false => "port"
     }));
-    ret.push(Cell::new(RHS, " "));
-    ui::render_stats_header(total_bytes_sent, total_bytes_recv, elapsed, &mut ret);
-    ret.push(Cell::new(LHS, ""));
-    ret.push(Cell::new(RHS, "age"));
-    ret.push(Cell::new(LHS, ""));
-    ret.push(Cell::new(RHS, "cc"));
-    ret.push(Cell::new(RHS, " "));
-    ret.push(Cell::new(RHS, "corp"));
-    ret
+    row.push(Cell::new(RHS, " "));
+    stats::add_headers(&mut row, total_bytes_sent, total_bytes_recv, elapsed);
+    row.push(Cell::new(LHS, ""));
+    row.push(Cell::new(RHS, "age"));
+    row.push(Cell::new(LHS, ""));
+    row.push(Cell::new(RHS, "cc"));
+    row.push(Cell::new(RHS, " "));
+    row.push(Cell::new(RHS, "corp"));
+    row
 }

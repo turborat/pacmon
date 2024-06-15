@@ -1,5 +1,6 @@
 use std::cmp::min;
 use ncurses::{clear, LINES, refresh};
+use ui::{print_footer, print_matrix};
 use crate::pacstream::PacStream;
 use crate::ui;
 use crate::ui::{Cell, compute_widths, UI};
@@ -27,9 +28,9 @@ pub(crate) fn print(pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u6
 
     clear();
 
-    ui::print_matrix(&mut matrix, &mut widths);
+    print_matrix(&mut matrix, &mut widths);
 
-    ui::print_footer(q_depth, dropped);
+    print_footer(q_depth, dropped);
 
     refresh();
 }

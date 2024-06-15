@@ -1,6 +1,7 @@
 mod corp_mode;
 mod normal_mode;
 mod help_mode;
+mod stats;
 
 use std::{panic, sync, thread};
 use std::backtrace::Backtrace;
@@ -187,21 +188,6 @@ fn print_matrix(matrix: &mut Vec<Vec<Cell>>, widths: &mut Vec<i16>) {
             x += *width as i32;
         }
     }
-}
-
-fn render_stats_header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: u64, ret: &mut Vec<Cell>) {
-    ret.push(Cell::new(RHS, "in"));
-    ret.push(Cell::new(RHS, ":"));
-    ret.push(Cell::new(RHS, &speed(total_bytes_recv, elapsed)));
-    ret.push(Cell::new(RHS, ""));
-    ret.push(Cell::new(LHS, ""));
-    ret.push(Cell::new(LHS, ""));
-    ret.push(Cell::new(RHS, "out"));
-    ret.push(Cell::new(RHS, ":"));
-    ret.push(Cell::new(RHS, &speed(total_bytes_sent, elapsed)));
-    ret.push(Cell::new(LHS, ""));
-    ret.push(Cell::new(LHS, ""));
-    ret.push(Cell::new(LHS, ""));
 }
 
 fn render_footer(q_depth: u64, dropped: u64) -> String {
