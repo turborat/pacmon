@@ -109,6 +109,7 @@ impl PacStream {
         etc::fmt_duration(duration)
     }
 
+    // todo: put this in ::new //
     pub fn resolve(&mut self, resolver: &mut Resolver) -> PacStream {
         if self.foreign {
             self.proc = "this should never be displayed".to_string();

@@ -14,9 +14,10 @@ use sync::atomic::Ordering::Relaxed;
 use chrono::{Local};
 use ncurses::*;
 use once_cell::sync::Lazy;
+use pacmon::Streams;
 
 use crate::etc::{log, mag_fmt, millitime};
-use crate::pacdat::StreamKey;
+use crate::pacmon;
 use crate::pacstream::PacStream;
 use crate::ui::Justify::{LHS, RHS};
 
@@ -112,19 +113,21 @@ impl UI {
         return false;
     }
 
-    pub fn draw(&mut self, streams: &mut BTreeMap<StreamKey, PacStream>, q_depth: u64, dropped: u64) {
+    pub fn draw(&mut self, streams: &mut Streams, q_depth: u64, dropped: u64) {
         let now = millitime();
-        let pac_vec = to_stream_vec(streams);
         let prev_widths = { WIDTHS.lock().unwrap().clone() };
         let interval = (now - self.last_draw) as u64;
 
         if HELP.fetch_and(true, Relaxed) {
+            let pac_vec = to_stream_vec(&mut streams.by_stream);
             help_mode::print(&pac_vec, prev_widths, q_depth, dropped, interval, self.last_draw);
         } else {
             if CORPORATE_MODE.fetch_and(true, Relaxed) {
+                let pac_vec = to_stream_vec(&mut streams.by_corp);
                 corp_mode::print(&pac_vec, prev_widths, q_depth, dropped, interval);
             }
             else {
+                let pac_vec = to_stream_vec(&mut streams.by_stream);
                 normal_mode::print(&pac_vec, prev_widths, q_depth, dropped, interval);
             }
         }
@@ -155,7 +158,7 @@ impl UI {
     }
 }
 
-fn to_stream_vec(streams: &mut BTreeMap<StreamKey, PacStream>) -> Vec<PacStream> {
+fn to_stream_vec<K>(streams: &mut BTreeMap<K, PacStream>) -> Vec<PacStream> {
     let mut pac_vec: Vec<PacStream> = streams.values().cloned().collect();
 
     if SORT_BY.fetch_sub(0, Relaxed) == 0 {
@@ -167,6 +170,7 @@ fn to_stream_vec(streams: &mut BTreeMap<StreamKey, PacStream>) -> Vec<PacStream>
     for stream in streams.values_mut() {
         stream.reset_stats();
     }
+
     pac_vec
 }
 

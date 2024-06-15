@@ -18,9 +18,9 @@ use crate::pcap::Pcap;
 use crate::resolver::Resolver;
 use crate::ui::UI;
 
-struct Streams {
-    by_stream: BTreeMap<StreamKey, PacStream>,
-    by_corp: BTreeMap<String, PacStream>
+pub(crate) struct Streams {
+    pub(crate) by_stream: BTreeMap<StreamKey, PacStream>,
+    pub(crate) by_corp: BTreeMap<String, PacStream>
 }
 
 impl Streams {
@@ -86,7 +86,7 @@ pub fn run(args: HashSet<String>) {
             let dropped = pcap.packets_dropped();
             let dropped_curr = dropped - last_dropped;
 
-            ui.draw(&mut streams.by_stream, last_q_max, dropped_curr);
+            ui.draw(&mut streams, last_q_max, dropped_curr);
 
             log(format!("redraw[qMax:{} packets:{}] took {:?}", last_q_max, last_packets, start.elapsed()));
 
@@ -99,8 +99,6 @@ pub fn run(args: HashSet<String>) {
             last_dropped = dropped;
         }
     }
-
-    // t.join().unwrap();
 }
 
 fn stream_for<'a,K>(key:K, pac_dat:&'a PacDat, streams:&'a mut BTreeMap<K, PacStream>, resolver:&mut Resolver)
@@ -128,10 +126,10 @@ fn tally(pac_dat: &mut PacDat, streams: &mut Streams, resolver:&mut Resolver, in
     }
 
     {   // tally by corp //
-        let key = match resolver.resolve_comany(&pac_dat.remote_addr()).as_str() {
-            "." => resolver.resolve_host(pac_dat.dst_addr.unwrap()),
-            str => str.to_string()
-        };
+        let mut key = resolver.resolve_comany(&pac_dat.remote_addr());
+        if key.len() < 2 {
+            key = resolver.resolve_host(pac_dat.remote_addr());
+        }
         stream_for(key, pac_dat, &mut streams.by_corp, resolver).tally(&pac_dat);
     }
 }

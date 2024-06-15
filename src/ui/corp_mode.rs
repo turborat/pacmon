@@ -1,6 +1,7 @@
 use std::cmp::min;
 use ncurses::{clear, LINES, refresh};
 use ui::{print_footer, print_matrix};
+use crate::etc::mag_fmt;
 use crate::pacstream::PacStream;
 use crate::ui;
 use crate::ui::{Cell, compute_widths, stats, UI, WIDTHS};
@@ -17,13 +18,24 @@ pub(crate) fn print(pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u6
     header.push(Cell::new(LHS, "corp"));
     header.push(Cell::new(RHS, " "));
     stats::add_headers(&mut header, bytes_sent_last, bytes_recv_last, interval);
+    header.push(Cell::new(RHS, " "));
+    header.push(Cell::new(RHS, "total"));
     matrix.push(header);
 
     for i in 0..nrows {
         let mut row: Vec<Cell> = Vec::new();
-        row.push(Cell::new(LHS, &pac_vec[i].corp));
+        let pac = &pac_vec[i];
+
+        if pac.corp.len() < 2 {
+            row.push(Cell::new(LHS, &pac.remote_host));
+        }
+        else {
+            row.push(Cell::new(LHS, &pac.corp));
+        }
         row.push(Cell::new(LHS, " "));
-        stats::add(&mut row, &pac_vec[i], bytes_sent_last, bytes_recv_last, interval);
+        stats::add(&mut row, pac, bytes_sent_last, bytes_recv_last, interval);
+        row.push(Cell::new(LHS, " "));
+        row.push(Cell::new(RHS, &format!("{}", mag_fmt(pac.bytes_recv + pac.bytes_sent))));
         matrix.push(row);
     }
 
