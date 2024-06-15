@@ -42,11 +42,7 @@ pub(crate) fn print(pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u6
 
     refresh();
 
-    {
-        let mut prev_widths = WIDTHS.lock().unwrap();
-        prev_widths.clear();
-        prev_widths.extend(widths);
-    }
+    UI::store_widths(&widths);
 }
 
 fn render_row(stream: &PacStream, total_bytes_sent: u64, total_bytes_recv: u64, resolve: bool, elapsed: u64) -> Vec<Cell> {

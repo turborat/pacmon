@@ -3,8 +3,8 @@ use ncurses::{clear, LINES, refresh};
 use ui::{print_footer, print_matrix};
 use crate::pacstream::PacStream;
 use crate::ui;
-use crate::ui::{Cell, compute_widths, UI};
-use crate::ui::Justify::RHS;
+use crate::ui::{Cell, compute_widths, stats, UI, WIDTHS};
+use crate::ui::Justify::{LHS, RHS};
 
 pub(crate) fn print(pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u64, dropped: u64, interval: u64) {
     let nrows = min(pac_vec.len(), (LINES() - 2) as usize);
@@ -14,16 +14,20 @@ pub(crate) fn print(pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u6
     let bytes_recv_last: u64 = pac_vec.iter().map(|s| s.bytes_recv_last).sum();
 
     let mut header: Vec<Cell> = Vec::new();
-    header.push(Cell::new(RHS, "corp"));
-
+    header.push(Cell::new(LHS, "corp"));
+    header.push(Cell::new(RHS, " "));
+    stats::add_headers(&mut header, bytes_sent_last, bytes_recv_last, interval);
     matrix.push(header);
 
     for i in 0..nrows {
-//            let row = self.render_row(&pac_vec[i], bytes_sent_last, bytes_recv_last, resolve, interval);
-//            matrix.push(row);
+        let mut row: Vec<Cell> = Vec::new();
+        row.push(Cell::new(LHS, &pac_vec[i].corp));
+        row.push(Cell::new(LHS, " "));
+        stats::add(&mut row, &pac_vec[i], bytes_sent_last, bytes_recv_last, interval);
+        matrix.push(row);
     }
 
-    let mut widths = compute_widths(&matrix, &vec![]);
+    let mut widths = compute_widths(&matrix, &prev_widths);
     //widths[0] = 20;
 
     clear();
@@ -33,5 +37,7 @@ pub(crate) fn print(pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u6
     print_footer(q_depth, dropped);
 
     refresh();
+
+    UI::store_widths(&widths);
 }
 

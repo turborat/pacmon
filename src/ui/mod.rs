@@ -56,9 +56,12 @@ impl UI {
         self.register_cmd('h', "help",    || { HELP.fetch_xor(true, Relaxed); });
         self.register_cmd('r', "resolve", || { RESOLVE.fetch_xor(true, Relaxed); });
         self.register_cmd(' ', "pause",   || { PAUSED.fetch_xor(true, Relaxed); });
-        self.register_cmd('t', "trim",    || { WIDTHS.lock().unwrap().clear(); });
+        self.register_cmd('t', "trim",    || UI::trim_columns() );
         self.register_cmd('s', "sort",    || { let _ = SORT_BY.fetch_update(Relaxed, Relaxed, |v| Some(if v == 0 { 1 } else { 0 })); });
-        self.register_cmd('c', "corps",   || { CORPORATE_MODE.fetch_xor(true, Relaxed); });
+        self.register_cmd('c', "corps",   || {
+            CORPORATE_MODE.fetch_xor(true, Relaxed);
+            UI::trim_columns();
+        });
         self.register_cmd('1', "1s",      || REDRAW_PERIOD.store(1000, Relaxed));
         self.register_cmd('2', "2s",      || REDRAW_PERIOD.store(2000, Relaxed));
         self.register_cmd('3', "3s",      || REDRAW_PERIOD.store(3000, Relaxed));
@@ -111,18 +114,7 @@ impl UI {
 
     pub fn draw(&mut self, streams: &mut BTreeMap<StreamKey, PacStream>, q_depth: u64, dropped: u64) {
         let now = millitime();
-        let mut pac_vec: Vec<PacStream> = streams.values().cloned().collect();
-
-        if SORT_BY.fetch_sub(0, Relaxed) == 0 {
-            pac_vec.sort_by(sort_by_last_ts);
-        } else {
-            pac_vec.sort_by(sort_by_bytes);
-        }
-
-        for stream in streams.values_mut() {
-            stream.reset_stats();
-        }
-
+        let pac_vec = to_stream_vec(streams);
         let prev_widths = { WIDTHS.lock().unwrap().clone() };
         let interval = (now - self.last_draw) as u64;
 
@@ -147,6 +139,35 @@ impl UI {
         }
         CMD_INFO.lock().unwrap().insert(c, desc.to_string());
     }
+
+    fn store_widths(widths: &Vec<i16>) {
+        let mut prev_widths = WIDTHS.lock().unwrap();
+        prev_widths.clear();
+        prev_widths.extend(widths);
+    }
+
+    fn trim_columns() {
+        WIDTHS.lock().unwrap().clear();
+    }
+
+    fn request_redraw() {
+        REDRAW_REQUSTED.store(true, Relaxed);
+    }
+}
+
+fn to_stream_vec(streams: &mut BTreeMap<StreamKey, PacStream>) -> Vec<PacStream> {
+    let mut pac_vec: Vec<PacStream> = streams.values().cloned().collect();
+
+    if SORT_BY.fetch_sub(0, Relaxed) == 0 {
+        pac_vec.sort_by(sort_by_last_ts);
+    } else {
+        pac_vec.sort_by(sort_by_bytes);
+    }
+
+    for stream in streams.values_mut() {
+        stream.reset_stats();
+    }
+    pac_vec
 }
 
 fn print_footer(q_depth: u64, dropped: u64) {
@@ -209,7 +230,7 @@ fn keystroke_handler() {
             Some(cmd) => cmd(),
             None => log(format!("getch({})", c))
         }
-        REDRAW_REQUSTED.store(true, Relaxed);
+        UI::request_redraw();
     }
 }
 
