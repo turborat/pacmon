@@ -225,6 +225,44 @@ impl UI {
         }
     }
 
+    fn print_corp(&self, pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u64, dropped: u64, interval: u64) {
+        let nrows = min(pac_vec.len(), (LINES() - 2) as usize);
+        let mut matrix: Vec<Vec<Cell>> = Vec::new();
+
+        let bytes_sent_last: u64 = pac_vec.iter().map(|s| s.bytes_sent_last).sum();
+        let bytes_recv_last: u64 = pac_vec.iter().map(|s| s.bytes_recv_last).sum();
+
+        let mut header: Vec<Cell> = Vec::new();
+        header.push(Cell::new(RHS, "corp"));
+
+        matrix.push(header);
+
+        for i in 0..nrows {
+//            let row = self.render_row(&pac_vec[i], bytes_sent_last, bytes_recv_last, resolve, interval);
+//            matrix.push(row);
+        }
+
+        let mut widths = compute_widths(&matrix, &vec![]);
+        //widths[0] = 20;
+
+        clear();
+
+        Self::print_matrix(&mut matrix, &mut widths);
+
+        self.print_footer(q_depth, dropped);
+
+        refresh();
+    }
+
+    fn print_footer(&self, q_depth: u64, dropped: u64) {
+        let footer = self.render_footer(q_depth, dropped);
+        attron(A_REVERSE());
+        mvprintw(LINES() - 1, 0, &footer);
+        pad(COLS() - footer.len() as i32);
+        mvprintw(LINES() - 1, COLS() - 12, &format!("{:?}", Local::now().time()));
+        attroff(A_REVERSE());
+    }
+
     fn print_matrix(matrix: &mut Vec<Vec<Cell>>, widths: &mut Vec<i16>) {
         for i in 0..matrix.len() {
             let row = matrix.get(i).unwrap();
@@ -249,7 +287,7 @@ impl UI {
                 mvprintw(y as i32, x + offset as i32, &cell.txt);
 
                 if cell.width() > *width {
-                    mvprintw(y as i32, x + offset as i32 - 1, "X");
+                    mvprintw(y as i32, x + offset as i32 - 1, " ");
                 }
 
                 x += *width as i32;
