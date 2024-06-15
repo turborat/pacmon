@@ -139,75 +139,6 @@ impl UI {
         self.last_draw = now;
     }
 
-    fn print_footer(q_depth: u64, dropped: u64) {
-        let footer = Self::render_footer(q_depth, dropped);
-        attron(A_REVERSE());
-        mvprintw(LINES() - 1, 0, &footer);
-        pad(COLS() - footer.len() as i32);
-        mvprintw(LINES() - 1, COLS() - 12, &format!("{:?}", Local::now().time()));
-        attroff(A_REVERSE());
-    }
-
-    fn print_matrix(matrix: &mut Vec<Vec<Cell>>, widths: &mut Vec<i16>) {
-        for i in 0..matrix.len() {
-            let row = matrix.get(i).unwrap();
-            let mut x = 0i32;
-            let y = i;
-
-            for j in 0..row.len() {
-                let cell = row.get(j).unwrap();
-                let width = widths.get(j).unwrap();
-
-                let offset = match cell.justify {
-                    LHS => 0,
-                    RHS => width - cell.width()
-                };
-
-                if i == 0 {
-                    attron(A_BOLD());
-                } else {
-                    attroff(A_BOLD());
-                }
-
-                mvprintw(y as i32, x + offset as i32, &cell.txt);
-
-                if cell.width() > *width {
-                    mvprintw(y as i32, x + offset as i32 - 1, " ");
-                }
-
-                x += *width as i32;
-            }
-        }
-    }
-
-
-    fn render_stats_header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: u64, ret: &mut Vec<Cell>) {
-        ret.push(Cell::new(RHS, "in"));
-        ret.push(Cell::new(RHS, ":"));
-        ret.push(Cell::new(RHS, &speed(total_bytes_recv, elapsed)));
-        ret.push(Cell::new(RHS, ""));
-        ret.push(Cell::new(LHS, ""));
-        ret.push(Cell::new(LHS, ""));
-        ret.push(Cell::new(RHS, "out"));
-        ret.push(Cell::new(RHS, ":"));
-        ret.push(Cell::new(RHS, &speed(total_bytes_sent, elapsed)));
-        ret.push(Cell::new(LHS, ""));
-        ret.push(Cell::new(LHS, ""));
-        ret.push(Cell::new(LHS, ""));
-    }
-
-    fn render_footer(q_depth: u64, dropped: u64) -> String {
-        let period = REDRAW_PERIOD.fetch_sub(0, Relaxed);
-        let sort = match SORT_BY.fetch_sub(0, Relaxed) {
-            0 => "time",
-            1 => "total",
-            _ => panic!("dead")
-        };
-        let paused = PAUSED.fetch_and(true, Relaxed);
-        format!("{}x{} q:{} drop'd:{} interval:{}ms sort:{} pause:{}",
-                LINES(), COLS(), q_depth, dropped, period, sort, paused)
-    }
-
     fn register_cmd(&self, c: char, desc: &str, cmd: fn()) {
         match CMDS.lock().unwrap().insert(c, cmd) {
             None => {}
@@ -215,6 +146,74 @@ impl UI {
         }
         CMD_INFO.lock().unwrap().insert(c, desc.to_string());
     }
+}
+
+fn print_footer(q_depth: u64, dropped: u64) {
+    let footer = render_footer(q_depth, dropped);
+    attron(A_REVERSE());
+    mvprintw(LINES() - 1, 0, &footer);
+    pad(COLS() - footer.len() as i32);
+    mvprintw(LINES() - 1, COLS() - 12, &format!("{:?}", Local::now().time()));
+    attroff(A_REVERSE());
+}
+
+fn print_matrix(matrix: &mut Vec<Vec<Cell>>, widths: &mut Vec<i16>) {
+    for i in 0..matrix.len() {
+        let row = matrix.get(i).unwrap();
+        let mut x = 0i32;
+        let y = i;
+
+        for j in 0..row.len() {
+            let cell = row.get(j).unwrap();
+            let width = widths.get(j).unwrap();
+
+            let offset = match cell.justify {
+                LHS => 0,
+                RHS => width - cell.width()
+            };
+
+            if i == 0 {
+                attron(A_BOLD());
+            } else {
+                attroff(A_BOLD());
+            }
+
+            mvprintw(y as i32, x + offset as i32, &cell.txt);
+
+            if cell.width() > *width {
+                mvprintw(y as i32, x + offset as i32 - 1, " ");
+            }
+
+            x += *width as i32;
+        }
+    }
+}
+
+fn render_stats_header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: u64, ret: &mut Vec<Cell>) {
+    ret.push(Cell::new(RHS, "in"));
+    ret.push(Cell::new(RHS, ":"));
+    ret.push(Cell::new(RHS, &speed(total_bytes_recv, elapsed)));
+    ret.push(Cell::new(RHS, ""));
+    ret.push(Cell::new(LHS, ""));
+    ret.push(Cell::new(LHS, ""));
+    ret.push(Cell::new(RHS, "out"));
+    ret.push(Cell::new(RHS, ":"));
+    ret.push(Cell::new(RHS, &speed(total_bytes_sent, elapsed)));
+    ret.push(Cell::new(LHS, ""));
+    ret.push(Cell::new(LHS, ""));
+    ret.push(Cell::new(LHS, ""));
+}
+
+fn render_footer(q_depth: u64, dropped: u64) -> String {
+    let period = REDRAW_PERIOD.fetch_sub(0, Relaxed);
+    let sort = match SORT_BY.fetch_sub(0, Relaxed) {
+        0 => "time",
+        1 => "total",
+        _ => panic!("dead")
+    };
+    let paused = PAUSED.fetch_and(true, Relaxed);
+    format!("{}x{} q:{} drop'd:{} interval:{}ms sort:{} pause:{}",
+            LINES(), COLS(), q_depth, dropped, period, sort, paused)
 }
 
 fn keystroke_handler() {

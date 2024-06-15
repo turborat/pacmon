@@ -36,9 +36,9 @@ pub(crate) fn print(pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u6
 
     clear();
 
-    UI::print_matrix(&mut matrix, &mut widths);
+    ui::print_matrix(&mut matrix, &mut widths);
 
-    UI::print_footer(q_depth, dropped);
+    ui::print_footer(q_depth, dropped);
 
     refresh();
 
@@ -133,7 +133,7 @@ fn render_header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: u64, res
         false => "port"
     }));
     ret.push(Cell::new(RHS, " "));
-    UI::render_stats_header(total_bytes_sent, total_bytes_recv, elapsed, &mut ret);
+    ui::render_stats_header(total_bytes_sent, total_bytes_recv, elapsed, &mut ret);
     ret.push(Cell::new(LHS, ""));
     ret.push(Cell::new(RHS, "age"));
     ret.push(Cell::new(LHS, ""));
