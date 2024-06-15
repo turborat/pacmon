@@ -128,10 +128,7 @@ fn proc_for_pid(pid:u32) -> Option<String> {
     let path = format!("/proc/{}/cmdline", pid);
     let mut fh = match File::open(&path) {
         Ok(fh) => fh,
-        Err(msg) => {
-            log(format!("!!file::open {}: {}", path, msg));
-            return None
-        }
+        Err(msg) => panic!("{}", msg)
     };
 
     let mut cmd = String::new();

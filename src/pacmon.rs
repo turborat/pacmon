@@ -92,11 +92,11 @@ pub fn run(args: HashSet<String>) {
 fn stream_for<'a>(pac_dat:&'a PacDat, streams:&'a mut BTreeMap<StreamKey, PacStream>, resolver:&mut Resolver)
     -> &'a mut PacStream {
     let key = pac_dat.key();
-    let stream = streams.entry(key).or_insert_with(|| PacStream::new(&pac_dat).resolve(resolver));
-    stream
+    streams.entry(key).or_insert_with(|| PacStream::new(&pac_dat).resolve(resolver))
 }
 
 fn tally(pac_dat: &mut PacDat, streams:&mut BTreeMap<StreamKey, PacStream>, resolver:&mut Resolver, interfaces:&BTreeSet<(IpAddr, IpAddr)>) {
+    // do this off the pcap thread in hopes of dropping fewer packets
     match Pcap::get_dir_foreign(&pac_dat.src_addr.unwrap(), &pac_dat.dst_addr.unwrap(), interfaces) {
         Some((dir, foreign, local_traffic)) => {
             pac_dat.dir = Some(dir);
