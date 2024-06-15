@@ -4,6 +4,7 @@ use std::net::IpAddr;
 
 use chrono::{DateTime, Utc};
 use etherparse::IpNumber;
+use Dir::{In, Out};
 
 #[derive(PartialEq)]
 pub enum Dir {
@@ -52,6 +53,14 @@ impl PacDat {
             }
         }
     }
+
+    pub fn remote_addr(&self) -> IpAddr {
+        match self.dir {
+            Some(Out) => self.dst_addr,
+            Some(In) => self.src_addr,
+            _ => panic!("dir not set")
+        }.unwrap()
+    }
 }
 
 impl fmt::Display for PacDat {
@@ -59,8 +68,8 @@ impl fmt::Display for PacDat {
         write!(f, "{} ", self.ts.format("%H:%M:%S%.6f"))?;
 
         match self.dir.as_ref().unwrap() {
-            Dir::In => write!(f, ">> "),
-            Dir::Out => write!(f, "<< ")
+            In => write!(f, ">> "),
+            Out => write!(f, "<< ")
         }?;
 
         match self.ip_number {
@@ -70,7 +79,7 @@ impl fmt::Display for PacDat {
         };
 
         match self.dir.as_ref().unwrap() {
-            Dir::In => {
+            In => {
                 write!(f, "{}:", self.src_addr.unwrap().to_string())?;
                 write!(f, "{} ", self.src_port.unwrap().to_string())?;
                 if self.foreign.unwrap() {
@@ -78,7 +87,7 @@ impl fmt::Display for PacDat {
                     write!(f, "{} ", self.dst_port.unwrap().to_string())?;
                 }
             }
-            Dir::Out => {
+            Out => {
                 write!(f, "{}:", self.dst_addr.unwrap().to_string())?;
                 write!(f, "{} ", self.dst_port.unwrap().to_string())?;
                 if self.foreign.unwrap() {

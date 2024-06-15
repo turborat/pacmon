@@ -18,6 +18,20 @@ use crate::pcap::Pcap;
 use crate::resolver::Resolver;
 use crate::ui::UI;
 
+struct Streams {
+    by_stream: BTreeMap<StreamKey, PacStream>,
+    by_corp: BTreeMap<String, PacStream>
+}
+
+impl Streams {
+    fn new() -> Self {
+        Streams{
+            by_stream: BTreeMap::new(),
+            by_corp: BTreeMap::new()
+        }
+    }
+}
+
 pub fn run(args: HashSet<String>) {
     if args.contains("-l") {
         init_logging();
@@ -37,10 +51,10 @@ pub fn run(args: HashSet<String>) {
     let mut resolver = Resolver::new();
     println!("done.\n~pcap..");
 
-    let mut streams: BTreeMap<StreamKey, PacStream> = BTreeMap::new();
-    let mut packets = 0u64;
-    let mut last_packets_dropped = 0u64;
-    let mut q_max = 0u64;
+    let mut streams = Streams::new();
+    let mut last_packets = 0u64;
+    let mut last_dropped = 0u64;
+    let mut last_q_max = 0u64;
     let mut running = false;
 
     let mut ui = UI::init();
@@ -60,8 +74,8 @@ pub fn run(args: HashSet<String>) {
                 }
 
                 tally(&mut pac_dat, &mut streams, &mut resolver, &interfaces);
-                packets += 1 ;
-                q_max = max(q_max, pcap.decrement_and_get_q_depth());
+                last_packets += 1 ;
+                last_q_max = max(last_q_max, pcap.decrement_and_get_q_depth());
             }
             Err(_recv_timeout_non_error) => {
             }
@@ -70,32 +84,31 @@ pub fn run(args: HashSet<String>) {
         if ui.should_redraw() {
             let start = Instant::now();
             let dropped = pcap.packets_dropped();
-            let dropped_curr = dropped - last_packets_dropped;
+            let dropped_curr = dropped - last_dropped;
 
-            ui.draw(&mut streams, q_max.clone(), dropped_curr);
+            ui.draw(&mut streams.by_stream, last_q_max, dropped_curr);
 
-            log(format!("redraw[qMax:{} packets:{}] took {:?}", q_max, packets, start.elapsed()));
+            log(format!("redraw[qMax:{} packets:{}] took {:?}", last_q_max, last_packets, start.elapsed()));
 
             if dropped_curr > 0 {
                 log(format!("err: dropped {} packets", dropped_curr));
             }
 
-            packets = 0;
-            q_max = 0;
-            last_packets_dropped = dropped;
+            last_packets = 0;
+            last_q_max = 0;
+            last_dropped = dropped;
         }
     }
 
     // t.join().unwrap();
 }
 
-fn stream_for<'a>(pac_dat:&'a PacDat, streams:&'a mut BTreeMap<StreamKey, PacStream>, resolver:&mut Resolver)
-    -> &'a mut PacStream {
-    let key = pac_dat.key();
+fn stream_for<'a,K>(key:K, pac_dat:&'a PacDat, streams:&'a mut BTreeMap<K, PacStream>, resolver:&mut Resolver)
+    -> &'a mut PacStream where K: Ord {
     streams.entry(key).or_insert_with(|| PacStream::new(&pac_dat).resolve(resolver))
 }
 
-fn tally(pac_dat: &mut PacDat, streams:&mut BTreeMap<StreamKey, PacStream>, resolver:&mut Resolver, interfaces:&BTreeSet<(IpAddr, IpAddr)>) {
+fn tally(pac_dat: &mut PacDat, streams: &mut Streams, resolver:&mut Resolver, interfaces:&BTreeSet<(IpAddr, IpAddr)>) {
     // do this off the pcap thread in hopes of dropping fewer packets
     match Pcap::get_dir_foreign(&pac_dat.src_addr.unwrap(), &pac_dat.dst_addr.unwrap(), interfaces) {
         Some((dir, foreign, local_traffic)) => {
@@ -109,7 +122,17 @@ fn tally(pac_dat: &mut PacDat, streams:&mut BTreeMap<StreamKey, PacStream>, reso
         }
     }
 
-    let stream = stream_for(&pac_dat, streams, resolver);
-    stream.tally(&pac_dat);
+    {   // tally by stream //
+        let key = pac_dat.key();
+        stream_for(key, pac_dat, &mut streams.by_stream, resolver).tally(&pac_dat);
+    }
+
+    {   // tally by corp //
+        let key = match resolver.resolve_comany(&pac_dat.remote_addr()).as_str() {
+            "." => resolver.resolve_host(pac_dat.dst_addr.unwrap()),
+            str => str.to_string()
+        };
+        stream_for(key, pac_dat, &mut streams.by_corp, resolver).tally(&pac_dat);
+    }
 }
 
