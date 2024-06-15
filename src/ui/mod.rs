@@ -100,7 +100,7 @@ impl UI {
         }
 
         let now = millitime();
-        let redraw_period = REDRAW_PERIOD.fetch_sub(0, Relaxed);
+        let redraw_period = REDRAW_PERIOD.load(Relaxed);
 
         if now - self.start_time < 5000 {
             return now - self.last_draw > 99;
@@ -118,11 +118,11 @@ impl UI {
         let prev_widths = { WIDTHS.lock().unwrap().clone() };
         let interval = (now - self.last_draw) as u64;
 
-        if HELP.fetch_and(true, Relaxed) {
+        if HELP.load(Relaxed) {
             let pac_vec = to_stream_vec(&mut streams.by_stream);
             help_mode::print(&pac_vec, prev_widths, q_depth, dropped, interval, self.last_draw);
         } else {
-            if CORPORATE_MODE.fetch_and(true, Relaxed) {
+            if CORPORATE_MODE.load(Relaxed) {
                 let pac_vec = to_stream_vec(&mut streams.by_corp);
                 corp_mode::print(&pac_vec, prev_widths, q_depth, dropped, interval);
             }
@@ -216,13 +216,13 @@ fn print_matrix(matrix: &mut Vec<Vec<Cell>>, widths: &mut Vec<i16>) {
 }
 
 fn render_footer(q_depth: u64, dropped: u64) -> String {
-    let period = REDRAW_PERIOD.fetch_sub(0, Relaxed);
-    let sort = match SORT_BY.fetch_sub(0, Relaxed) {
+    let period = REDRAW_PERIOD.load(Relaxed);
+    let sort = match SORT_BY.load(Relaxed) {
         0 => "time",
         1 => "total",
         _ => panic!("dead")
     };
-    let paused = PAUSED.fetch_and(true, Relaxed);
+    let paused = PAUSED.load(Relaxed);
     format!("{}x{} q:{} drop'd:{} interval:{}ms sort:{} pause:{}",
             LINES(), COLS(), q_depth, dropped, period, sort, paused)
 }
@@ -333,13 +333,8 @@ fn massage_corp(txt:&mut String, target_width:usize) {
         txt.truncate(target_width);
     }
 
-    while txt.ends_with(" ") || txt.ends_with(",") {
+    while txt.ends_with([' ', ',', '-']) {
         txt.truncate(txt.len()-1);
-    }
-
-    while txt.len() < target_width {
-        // shouldn't be necessary - revisit "widths"
-        txt.insert(0, ' ');
     }
 }
 

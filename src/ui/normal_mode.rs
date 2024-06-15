@@ -14,7 +14,7 @@ pub(crate) fn print(pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u6
     let bytes_sent_last: u64 = pac_vec.iter().map(|s| s.bytes_sent_last).sum();
     let bytes_recv_last: u64 = pac_vec.iter().map(|s| s.bytes_recv_last).sum();
 
-    let resolve = RESOLVE.fetch_and(true, Relaxed);
+    let resolve = RESOLVE.load(Relaxed);
     matrix.push(render_header(bytes_sent_last, bytes_recv_last, interval, resolve));
 
     for i in 0..nrows {
