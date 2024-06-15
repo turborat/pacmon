@@ -17,6 +17,8 @@ pub(crate) fn print(pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u6
     let mut header: Vec<Cell> = Vec::new();
     header.push(Cell::new(LHS, "corp"));
     header.push(Cell::new(RHS, " "));
+    header.push(Cell::new(RHS, "cc"));
+    header.push(Cell::new(RHS, " "));
     stats::add_headers(&mut header, bytes_sent_last, bytes_recv_last, interval);
     header.push(Cell::new(RHS, " "));
     header.push(Cell::new(RHS, "total"));
@@ -25,13 +27,14 @@ pub(crate) fn print(pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u6
     for i in 0..nrows {
         let mut row: Vec<Cell> = Vec::new();
         let pac = &pac_vec[i];
-
         if pac.corp.len() < 2 {
             row.push(Cell::new(LHS, &pac.remote_host));
         }
         else {
             row.push(Cell::new(LHS, &pac.corp));
         }
+        row.push(Cell::new(LHS, " "));
+        row.push(Cell::new(LHS, &pac.cc));
         row.push(Cell::new(LHS, " "));
         stats::add(&mut row, pac, bytes_sent_last, bytes_recv_last, interval);
         row.push(Cell::new(LHS, " "));
