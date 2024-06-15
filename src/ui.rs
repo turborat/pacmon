@@ -22,6 +22,7 @@ static REDRAW_REQUSTED:AtomicBool = AtomicBool::new(false);
 static REDRAW_PERIOD:AtomicI64 = AtomicI64::new(2000);
 static RESOLVE:AtomicBool = AtomicBool::new(true);
 static HELP:AtomicBool = AtomicBool::new(false);
+static CORPORATE_MODE:AtomicBool = AtomicBool::new(false);
 static PAUSED:AtomicBool = AtomicBool::new(false);
 static SORT_BY:AtomicI64 = AtomicI64::new(0);
 
@@ -46,22 +47,23 @@ impl UI {
         curs_set(CURSOR_VISIBILITY::CURSOR_INVISIBLE);
         refresh();
 
-        self.register_cmd('q', "quit", || shutdown(0, "bye".to_string()));
-        self.register_cmd('h', "help", || { HELP.fetch_xor(true, Relaxed); });
+        self.register_cmd('q', "quit",    || shutdown(0, "bye".to_string()));
+        self.register_cmd('h', "help",    || { HELP.fetch_xor(true, Relaxed); });
         self.register_cmd('r', "resolve", || { RESOLVE.fetch_xor(true, Relaxed); });
-        self.register_cmd(' ', "pause", || { PAUSED.fetch_xor(true, Relaxed); });
-        self.register_cmd('t', "trim", || { WIDTHS.lock().unwrap().clear(); });
-        self.register_cmd('s', "sort", || { let _ = SORT_BY.fetch_update(Relaxed, Relaxed, |v| Some(if v == 0 { 1 } else { 0 })); });
-        self.register_cmd('1', "1s", || REDRAW_PERIOD.store(1000, Relaxed));
-        self.register_cmd('2', "2s", || REDRAW_PERIOD.store(2000, Relaxed));
-        self.register_cmd('3', "3s", || REDRAW_PERIOD.store(3000, Relaxed));
-        self.register_cmd('4', "4s", || REDRAW_PERIOD.store(4000, Relaxed));
-        self.register_cmd('5', "5s", || REDRAW_PERIOD.store(5000, Relaxed));
-        self.register_cmd('6', "6s", || REDRAW_PERIOD.store(6000, Relaxed));
-        self.register_cmd('7', "7s", || REDRAW_PERIOD.store(7000, Relaxed));
-        self.register_cmd('8', "8s", || REDRAW_PERIOD.store(8000, Relaxed));
-        self.register_cmd('9', "9s", || REDRAW_PERIOD.store(9000, Relaxed));
-        self.register_cmd('0', "<1s", || REDRAW_PERIOD.store(200, Relaxed));
+        self.register_cmd(' ', "pause",   || { PAUSED.fetch_xor(true, Relaxed); });
+        self.register_cmd('t', "trim",    || { WIDTHS.lock().unwrap().clear(); });
+        self.register_cmd('s', "sort",    || { let _ = SORT_BY.fetch_update(Relaxed, Relaxed, |v| Some(if v == 0 { 1 } else { 0 })); });
+        self.register_cmd('c', "corps",   || { CORPORATE_MODE.fetch_xor(true, Relaxed); });
+        self.register_cmd('1', "1s",      || REDRAW_PERIOD.store(1000, Relaxed));
+        self.register_cmd('2', "2s",      || REDRAW_PERIOD.store(2000, Relaxed));
+        self.register_cmd('3', "3s",      || REDRAW_PERIOD.store(3000, Relaxed));
+        self.register_cmd('4', "4s",      || REDRAW_PERIOD.store(4000, Relaxed));
+        self.register_cmd('5', "5s",      || REDRAW_PERIOD.store(5000, Relaxed));
+        self.register_cmd('6', "6s",      || REDRAW_PERIOD.store(6000, Relaxed));
+        self.register_cmd('7', "7s",      || REDRAW_PERIOD.store(7000, Relaxed));
+        self.register_cmd('8', "8s",      || REDRAW_PERIOD.store(8000, Relaxed));
+        self.register_cmd('9', "9s",      || REDRAW_PERIOD.store(9000, Relaxed));
+        self.register_cmd('0', "<1s",     || REDRAW_PERIOD.store(200, Relaxed));
         self.register_cmd(66 as char, "interval--", || { REDRAW_PERIOD.fetch_add(-9, Relaxed) ;});
         self.register_cmd(65 as char, "interval++", || { REDRAW_PERIOD.fetch_add( 9, Relaxed) ;});
 
@@ -122,7 +124,12 @@ impl UI {
         if HELP.fetch_and(true, Relaxed) {
             self.print_help(&pac_vec, prev_widths, q_depth, dropped, interval);
         } else {
-            self.print_normal(&pac_vec, prev_widths, q_depth, dropped, interval);
+            if CORPORATE_MODE.fetch_and(true, Relaxed) {
+                self.print_corp(&pac_vec, prev_widths, q_depth, dropped, interval);
+            }
+            else {
+                self.print_normal(&pac_vec, prev_widths, q_depth, dropped, interval);
+            }
         }
 
         self.last_draw = now;
@@ -196,10 +203,12 @@ impl UI {
         // hack hack hack hack hack hack hack - to line things up //
         let render_len = widths.iter().sum::<i16>();
         let deficit = COLS() as i16 - render_len;
-        let total = widths[2] + widths[6] + deficit;
+        let local_col = 0;
+        let remote_col = 4;
+        let total = widths[local_col] + widths[remote_col] + deficit;
         let ratio = 0.45;   // local :: remote 
-        widths[2 /*local-host*/] = (total as f32 * ratio) as i16;
-        widths[6 /*remote-host*/] = total - widths[2 /*local-host*/];
+        widths[local_col] = (total as f32 * ratio) as i16;
+        widths[remote_col] = total - widths[local_col];
 
         clear();
 
@@ -240,7 +249,7 @@ impl UI {
                 mvprintw(y as i32, x + offset as i32, &cell.txt);
 
                 if cell.width() > *width {
-                    mvprintw(y as i32, x + offset as i32 - 1, " ");
+                    mvprintw(y as i32, x + offset as i32 - 1, "X");
                 }
 
                 x += *width as i32;
@@ -368,7 +377,10 @@ impl UI {
     }
 
     fn register_cmd(&self, c: char, desc: &str, cmd: fn()) {
-        CMDS.lock().unwrap().insert(c, cmd);
+        match CMDS.lock().unwrap().insert(c, cmd) {
+            None => {}
+            Some(_) => panic!("dupe:{}", c)
+        }
         CMD_INFO.lock().unwrap().insert(c, desc.to_string());
     }
 }
