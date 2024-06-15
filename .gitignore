@@ -15,5 +15,5 @@ Cargo.lock
 
 
 /.idea
-/.pacmon.log
+/pacmon.log
 /pacmon.iml

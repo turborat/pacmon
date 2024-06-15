@@ -1,3 +1,6 @@
+mod corp_mode;
+mod normal_mode;
+
 use std::{panic, sync, thread};
 use std::backtrace::Backtrace;
 use std::cmp::{max, min, Ordering};
@@ -125,10 +128,10 @@ impl UI {
             self.print_help(&pac_vec, prev_widths, q_depth, dropped, interval);
         } else {
             if CORPORATE_MODE.fetch_and(true, Relaxed) {
-                self.print_corp(&pac_vec, prev_widths, q_depth, dropped, interval);
+                corp_mode::print(&pac_vec, prev_widths, q_depth, dropped, interval);
             }
             else {
-                self.print_normal(&pac_vec, prev_widths, q_depth, dropped, interval);
+                normal_mode::print(&pac_vec, prev_widths, q_depth, dropped, interval);
             }
         }
 
@@ -183,79 +186,9 @@ impl UI {
         refresh();
     }
 
-    fn print_normal(&self, pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u64, dropped: u64, interval: u64) {
-        let nrows = min(pac_vec.len(), (LINES() - 2) as usize);
-        let mut matrix: Vec<Vec<Cell>> = Vec::new();
 
-        let bytes_sent_last: u64 = pac_vec.iter().map(|s| s.bytes_sent_last).sum();
-        let bytes_recv_last: u64 = pac_vec.iter().map(|s| s.bytes_recv_last).sum();
-
-        let resolve = RESOLVE.fetch_and(true, Relaxed);
-        matrix.push(self.render_header(bytes_sent_last, bytes_recv_last, interval, resolve));
-
-        for i in 0..nrows {
-            let row = self.render_row(&pac_vec[i], bytes_sent_last, bytes_recv_last, resolve, interval);
-            matrix.push(row);
-        }
-
-        let mut widths = compute_widths(&matrix, &prev_widths);
-
-        // hack hack hack hack hack hack hack - to line things up //
-        let render_len = widths.iter().sum::<i16>();
-        let deficit = COLS() as i16 - render_len;
-        let local_col = 0;
-        let remote_col = 4;
-        let total = widths[local_col] + widths[remote_col] + deficit;
-        let ratio = 0.45;   // local :: remote 
-        widths[local_col] = (total as f32 * ratio) as i16;
-        widths[remote_col] = total - widths[local_col];
-
-        clear();
-
-        Self::print_matrix(&mut matrix, &mut widths);
-
-        self.print_footer(q_depth, dropped);
-
-        refresh();
-
-        {
-            let mut prev_widths = WIDTHS.lock().unwrap();
-            prev_widths.clear();
-            prev_widths.extend(widths);
-        }
-    }
-
-    fn print_corp(&self, pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u64, dropped: u64, interval: u64) {
-        let nrows = min(pac_vec.len(), (LINES() - 2) as usize);
-        let mut matrix: Vec<Vec<Cell>> = Vec::new();
-
-        let bytes_sent_last: u64 = pac_vec.iter().map(|s| s.bytes_sent_last).sum();
-        let bytes_recv_last: u64 = pac_vec.iter().map(|s| s.bytes_recv_last).sum();
-
-        let mut header: Vec<Cell> = Vec::new();
-        header.push(Cell::new(RHS, "corp"));
-
-        matrix.push(header);
-
-        for i in 0..nrows {
-//            let row = self.render_row(&pac_vec[i], bytes_sent_last, bytes_recv_last, resolve, interval);
-//            matrix.push(row);
-        }
-
-        let mut widths = compute_widths(&matrix, &vec![]);
-        //widths[0] = 20;
-
-        clear();
-
-        Self::print_matrix(&mut matrix, &mut widths);
-
-        self.print_footer(q_depth, dropped);
-
-        refresh();
-    }
-
-    fn print_footer(&self, q_depth: u64, dropped: u64) {
-        let footer = self.render_footer(q_depth, dropped);
+    fn print_footer(q_depth: u64, dropped: u64) {
+        let footer = Self::render_footer(q_depth, dropped);
         attron(A_REVERSE());
         mvprintw(LINES() - 1, 0, &footer);
         pad(COLS() - footer.len() as i32);
@@ -295,97 +228,6 @@ impl UI {
         }
     }
 
-    fn render_row(&self, stream: &PacStream, total_bytes_sent: u64, total_bytes_recv: u64, resolve: bool, elapsed: u64) -> Vec<Cell> {
-        let mut ret: Vec<Cell> = Vec::new();
-
-        if stream.foreign {
-            ret.push(Cell::new(RHS, &match resolve {
-                true => stream.local_host.to_string(),
-                false => stream.local_addr.to_string()
-            }));
-        } else {
-            ret.push(Cell::new(RHS, &match resolve {
-                true => format!("<{}>", stream.proc),
-                false => stream.local_addr.to_string()
-            }));
-        }
-
-        ret.push(Cell::new(LHS, ":"));
-
-        ret.push(Cell::new(LHS, &match resolve {
-            true => stream.local_service.to_string(),
-            false => stream.local_port.to_string()
-        }));
-
-        ret.push(Cell::new(LHS, " "));
-
-        ret.push(Cell::new(RHS, &match resolve {
-            true => trim_host(&stream.remote_host),
-            false => stream.remote_addr.to_string()
-        }));
-
-        ret.push(Cell::new(LHS, ":"));
-
-        ret.push(Cell::new(LHS, &match resolve {
-            true => {
-                let mut ss = stream.remote_service.to_string();
-                ss.truncate(6);
-                ss
-            },
-            false => stream.remote_port.to_string()
-        }));
-
-        ret.push(Cell::new(RHS, " "));
-
-        ret.push(Cell::new(RHS, &pct_fmt(stream.bytes_recv_last as f64 / total_bytes_recv as f64)));
-        ret.push(Cell::new(RHS, " "));
-        ret.push(Cell::new(RHS, &speed(stream.bytes_recv_last, elapsed)));
-        ret.push(Cell::new(RHS, " ("));
-        ret.push(Cell::new(RHS, &mag_fmt(stream.bytes_recv)));
-        ret.push(Cell::new(RHS, ") "));
-        ret.push(Cell::new(RHS, &pct_fmt(stream.bytes_sent_last as f64 / total_bytes_sent as f64)));
-        ret.push(Cell::new(RHS, " "));
-        ret.push(Cell::new(RHS, &speed(stream.bytes_sent_last, elapsed)));
-        ret.push(Cell::new(RHS, " ("));
-        ret.push(Cell::new(RHS, &mag_fmt(stream.bytes_sent)));
-        ret.push(Cell::new(RHS, ")"));
-
-        ret.push(Cell::new(RHS, " "));
-        ret.push(Cell::new(RHS, &stream.age()));
-        ret.push(Cell::new(RHS, " "));
-        ret.push(Cell::new(RHS, &stream.cc));
-
-        let mut corp = stream.corp.to_string();
-        massage_corp(&mut corp, (COLS() as f32 * 0.14) as usize);
-        ret.push(Cell::new(RHS, ""));
-        ret.push(Cell::new(RHS, &corp));
-
-        ret
-    }
-
-    fn render_header(&self, total_bytes_sent: u64, total_bytes_recv: u64, elapsed: u64, resolve: bool) -> Vec<Cell> {
-        let mut ret: Vec<Cell> = Vec::new();
-        ret.push(Cell::new(RHS, "host|<proc>"));
-        ret.push(Cell::new(LHS, ":"));
-        ret.push(Cell::new(LHS, "port"));
-        ret.push(Cell::new(LHS, " "));
-        ret.push(Cell::new(RHS, "remote-host"));
-        ret.push(Cell::new(LHS, ":"));
-        ret.push(Cell::new(LHS, match resolve {
-            true => "svc",
-            false => "port"
-        }));
-        ret.push(Cell::new(RHS, " "));
-        Self::render_stats_header(total_bytes_sent, total_bytes_recv, elapsed, &mut ret);
-        ret.push(Cell::new(LHS, ""));
-        ret.push(Cell::new(RHS, "age"));
-        ret.push(Cell::new(LHS, ""));
-        ret.push(Cell::new(RHS, "cc"));
-        ret.push(Cell::new(RHS, " "));
-        ret.push(Cell::new(RHS, "corp"));
-
-        ret
-    }
 
     fn render_stats_header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: u64, ret: &mut Vec<Cell>) {
         ret.push(Cell::new(RHS, "in"));
@@ -402,7 +244,7 @@ impl UI {
         ret.push(Cell::new(LHS, ""));
     }
 
-    fn render_footer(&self, q_depth: u64, dropped: u64) -> String {
+    fn render_footer(q_depth: u64, dropped: u64) -> String {
         let period = REDRAW_PERIOD.fetch_sub(0, Relaxed);
         let sort = match SORT_BY.fetch_sub(0, Relaxed) {
             0 => "time",
