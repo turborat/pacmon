@@ -126,10 +126,10 @@ fn tally(pac_dat: &mut PacDat, streams: &mut Streams, resolver:&mut Resolver, in
     }
 
     {   // tally by corp //
-        let mut key = resolver.resolve_comany(&pac_dat.remote_addr());
-        if key.len() < 2 {
-            key = resolver.resolve_host(pac_dat.remote_addr());
-        }
+        let key = match resolver.resolve_company(&pac_dat.remote_addr()) {
+            Some(corp) => corp,
+            None => resolver.resolve_host(pac_dat.remote_addr())
+        };
         stream_for(key, pac_dat, &mut streams.by_corp, resolver).tally(&pac_dat);
     }
 }

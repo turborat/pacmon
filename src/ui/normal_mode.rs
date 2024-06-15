@@ -4,7 +4,7 @@ use ncurses::{clear, COLS, LINES, refresh};
 use ui::{compute_widths, print_footer, print_matrix};
 use crate::pacstream::PacStream;
 use crate::ui;
-use crate::ui::{Cell, massage_corp, pct_fmt, RESOLVE, speed, stats, trim_host, UI, WIDTHS};
+use crate::ui::{Cell, massage_corp, RESOLVE, stats, trim_host, UI};
 use crate::ui::Justify::{LHS, RHS};
 
 pub(crate) fn print(pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u64, dropped: u64, interval: u64) {

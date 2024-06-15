@@ -134,7 +134,10 @@ impl PacStream {
         }
         else {
             self.cc = resolver.resolve_cc(&self.remote_addr);
-            self.corp = resolver.resolve_comany(&self.remote_addr);
+            self.corp = match resolver.resolve_company(&self.remote_addr) {
+                Some(corp) => corp,
+                None => "?".to_string()
+            };
         }
         self.to_owned()
     }

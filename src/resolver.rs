@@ -82,9 +82,9 @@ impl Resolver {
             Err(_) => addr.to_string()
         };
 
-        log(format!("resolve_host[{}] took {:?}", addr, start.elapsed()));
-
         self.dns_cache.insert(addr, host.to_string());
+
+        log(format!("resolve_host[{}] took {:?}", addr, start.elapsed()));
 
         host
     }
@@ -100,8 +100,8 @@ impl Resolver {
         self.ipdata.cc(addr)
     }
 
-    pub fn resolve_comany(&self, addr:&IpAddr) -> String {
-        self.ipdata.company(addr).to_string()
+    pub fn resolve_company(&self, addr:&IpAddr) -> Option<String> {
+        self.ipdata.company(addr)
     }
 }
 

@@ -4,7 +4,7 @@ use ui::{print_footer, print_matrix};
 use crate::etc::mag_fmt;
 use crate::pacstream::PacStream;
 use crate::ui;
-use crate::ui::{Cell, compute_widths, stats, UI, WIDTHS};
+use crate::ui::{Cell, compute_widths, stats, UI};
 use crate::ui::Justify::{LHS, RHS};
 
 pub(crate) fn print(pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u64, dropped: u64, interval: u64) {

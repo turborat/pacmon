@@ -57,11 +57,11 @@ impl UI {
         self.register_cmd('h', "help",    || { HELP.fetch_xor(true, Relaxed); });
         self.register_cmd('r', "resolve", || { RESOLVE.fetch_xor(true, Relaxed); });
         self.register_cmd(' ', "pause",   || { PAUSED.fetch_xor(true, Relaxed); });
-        self.register_cmd('t', "trim",    || UI::trim_columns() );
+        self.register_cmd('t', "trim",    || UI::trim_widths() );
         self.register_cmd('s', "sort",    || { let _ = SORT_BY.fetch_update(Relaxed, Relaxed, |v| Some(if v == 0 { 1 } else { 0 })); });
         self.register_cmd('c', "corps",   || {
             CORPORATE_MODE.fetch_xor(true, Relaxed);
-            UI::trim_columns();
+            UI::trim_widths();
         });
         self.register_cmd('1', "1s",      || REDRAW_PERIOD.store(1000, Relaxed));
         self.register_cmd('2', "2s",      || REDRAW_PERIOD.store(2000, Relaxed));
@@ -95,7 +95,7 @@ impl UI {
             return true;
         }
 
-        if PAUSED.fetch_and(true, Relaxed) {
+        if PAUSED.load(Relaxed) {
             return false
         }
 
@@ -149,7 +149,7 @@ impl UI {
         prev_widths.extend(widths);
     }
 
-    fn trim_columns() {
+    fn trim_widths() {
         WIDTHS.lock().unwrap().clear();
     }
 
@@ -161,7 +161,7 @@ impl UI {
 fn to_stream_vec<K>(streams: &mut BTreeMap<K, PacStream>) -> Vec<PacStream> {
     let mut pac_vec: Vec<PacStream> = streams.values().cloned().collect();
 
-    if SORT_BY.fetch_sub(0, Relaxed) == 0 {
+    if SORT_BY.load(Relaxed) == 0 {
         pac_vec.sort_by(sort_by_last_ts);
     } else {
         pac_vec.sort_by(sort_by_bytes);

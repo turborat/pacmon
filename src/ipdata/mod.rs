@@ -60,16 +60,16 @@ impl IpData {
         IpData { companies, locations }
     }
 
-    pub fn company(&self, addr:&IpAddr) -> String {
+    pub fn company(&self, addr:&IpAddr) -> Option<String> {
         let t1 = Instant::now();
         let ip_int = addr_to_int(addr);
         if let Some((&subnet, &ref company)) = self.companies.range(..=ip_int).next_back() {
             log(format!("ipdata::lookup::company[{}] took {:?}", addr, t1.elapsed()));
             if same_subnet(ip_int, subnet, company.bit_mask) {
-              return company.name.to_string();
+              return Some(company.name.to_string());
             } 
         }
-        return "?".to_string(); 
+        None
     }
 
     pub fn cc(&self, addr:&IpAddr) -> String {
