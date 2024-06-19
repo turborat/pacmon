@@ -199,15 +199,11 @@ fn print_matrix(matrix: &mut Vec<Vec<Cell>>, widths: &mut Vec<i16>) {
                 RHS => (width - cell.width()) as i32
             };
 
-            log(format!("{:?}", widths));
-
             // if we overshoot on the LHS we truncate (left) //
             let txt = if x + offset < 0 {
-                let range = (cell.txt.len() - *width as usize + 1)..cell.txt.len();
-                // panic if range too small? //
-                log(format!("range:{:?} offset:{} width:{} x:{} txt:'{}'", range, offset, width, x, &cell.txt));
                 offset = -x;
-                "!".to_string() + &cell.txt[range]
+                let range = (cell.txt.len() - *width as usize + 1)..cell.txt.len();
+                "~".to_string() + &cell.txt[range]
             } else {
                 cell.txt.to_string()
             };
