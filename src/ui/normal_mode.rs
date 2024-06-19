@@ -24,15 +24,7 @@ pub(crate) fn print(pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u6
 
     let mut widths = compute_widths(&matrix, &prev_widths);
 
-    // hack hack hack hack hack hack hack - to line things up //
-    let render_len = widths.iter().sum::<i16>();
-    let deficit = COLS() as i16 - render_len;
-    let local_col = 0;
-    let remote_col = 4;
-    let total = widths[local_col] + widths[remote_col] + deficit;
-    let ratio = 0.45;   // local :: remote
-    widths[local_col] = (total as f32 * ratio) as i16;
-    widths[remote_col] = total - widths[local_col];
+    hack_widths(&mut widths);
 
     clear();
 
@@ -43,6 +35,26 @@ pub(crate) fn print(pac_vec: &Vec<PacStream>, prev_widths: Vec<i16>, q_depth: u6
     refresh();
 
     UI::store_widths(&widths);
+}
+
+fn hack_widths(widths: &mut Vec<i16>) {
+    let cols = COLS();
+    if cols < 1 { // sometimes it is 0 at startup
+        return;
+    }
+
+    let local_col = 0;
+    let remote_col = 4;
+    let ratio = 0.45;   // local :: remote
+
+    let render_len = widths.iter().sum::<i16>();
+    let deficit = render_len - cols as i16;
+    let total = widths[local_col].wrapping_add(widths[remote_col]).wrapping_sub(deficit);
+
+    // todo: panic if total too small - nothing to work with //
+
+    widths[local_col] = (total as f32 * ratio) as i16;
+    widths[remote_col] = total - widths[local_col];
 }
 
 fn render_row(stream: &PacStream, total_bytes_sent: u64, total_bytes_recv: u64, resolve: bool, elapsed: u64) -> Vec<Cell> {

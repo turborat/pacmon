@@ -21,7 +21,8 @@ use crate::pacmon;
 use crate::pacstream::PacStream;
 use crate::ui::Justify::{LHS, RHS};
 
-static CMDS:Mutex<Lazy<HashMap<char,fn()>>> = Mutex::new(Lazy::new(||HashMap::new()));static CMD_INFO:Mutex<Lazy<BTreeMap<char,String>>> = Mutex::new(Lazy::new(||BTreeMap::new()));
+static CMDS:Mutex<Lazy<HashMap<char,fn()>>> = Mutex::new(Lazy::new(||HashMap::new()));
+static CMD_INFO:Mutex<Lazy<BTreeMap<char,String>>> = Mutex::new(Lazy::new(||BTreeMap::new()));
 static WIDTHS: Mutex<Lazy<Vec<i16>>> = Mutex::new(Lazy::new(||vec![]));
 
 static REDRAW_REQUSTED:AtomicBool = AtomicBool::new(false);
@@ -193,9 +194,22 @@ fn print_matrix(matrix: &mut Vec<Vec<Cell>>, widths: &mut Vec<i16>) {
             let cell = row.get(j).unwrap();
             let width = widths.get(j).unwrap();
 
-            let offset = match cell.justify {
-                LHS => 0,
-                RHS => width - cell.width()
+            let mut offset = match cell.justify {
+                LHS => 0i32,
+                RHS => (width - cell.width()) as i32
+            };
+
+            log(format!("{:?}", widths));
+
+            // if we overshoot on the LHS we truncate (left) //
+            let txt = if x + offset < 0 {
+                let range = (cell.txt.len() - *width as usize + 1)..cell.txt.len();
+                // panic if range too small? //
+                log(format!("range:{:?} offset:{} width:{} x:{} txt:'{}'", range, offset, width, x, &cell.txt));
+                offset = -x;
+                "!".to_string() + &cell.txt[range]
+            } else {
+                cell.txt.to_string()
             };
 
             if i == 0 {
@@ -204,10 +218,10 @@ fn print_matrix(matrix: &mut Vec<Vec<Cell>>, widths: &mut Vec<i16>) {
                 attroff(A_BOLD());
             }
 
-            mvprintw(y as i32, x + offset as i32, &cell.txt);
+            mvprintw(y as i32, x + offset, &txt);
 
             if cell.width() > *width {
-                mvprintw(y as i32, x + offset as i32 - 1, " ");
+                mvprintw(y as i32, x + offset - 1, " ");
             }
 
             x += *width as i32;
