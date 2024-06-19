@@ -113,20 +113,20 @@ mod tests {
     #[test]
     fn test_company() {
         let ipdata = IpData::new();
-        assert_eq!("GOOGLE", ipdata.company(&addr("8.8.8.8")));
-        assert_eq!("GOOGLE", ipdata.company(&addr("8.8.8.4")));
-        assert_eq!("GOOGLE", ipdata.company(&addr("8.8.8.0")));
-        assert_eq!("CLOUDFLARENET", ipdata.company(&addr("1.0.0.0")));
+        assert_eq!("GOOGLE", ipdata.company(&addr("8.8.8.8")).unwrap());
+        assert_eq!("GOOGLE", ipdata.company(&addr("8.8.8.4")).unwrap());
+        assert_eq!("GOOGLE", ipdata.company(&addr("8.8.8.0")).unwrap());
+        assert_eq!("CLOUDFLARENET", ipdata.company(&addr("1.0.0.0")).unwrap());
 
         //1.0.128.0/19
-        assert_eq!("?", ipdata.company(&addr("0.1.0.0")));
-        assert_eq!("TOT Public Company Limited", ipdata.company(&addr("1.0.128.3")));
+        assert_eq!(None, ipdata.company(&addr("0.1.0.0")));
+        assert_eq!("TOT Public Company Limited", ipdata.company(&addr("1.0.128.3")).unwrap());
 
         //(3758095872 /*223.255.254.0/24*/, 24, "MARINA BAY SANDS PTE LTD"),
-        assert_eq!("MARINA BAY SANDS PTE LTD", ipdata.company(&addr("223.255.254.255")));
-        assert_eq!("?", ipdata.company(&addr("224.0.0.251")));
-        assert_eq!("?", ipdata.company(&addr("239.255.255.250")));
-        assert_eq!("?", ipdata.company(&addr("223.255.255.0")));
+        assert_eq!("MARINA BAY SANDS PTE LTD", ipdata.company(&addr("223.255.254.255")).unwrap());
+        assert_eq!(None, ipdata.company(&addr("224.0.0.251")));
+        assert_eq!(None, ipdata.company(&addr("239.255.255.250")));
+        assert_eq!(None, ipdata.company(&addr("223.255.255.0")));
     }
 
     #[test]
