@@ -11,7 +11,6 @@ use etc::init_logging;
 
 use crate::etc;
 use crate::etc::log;
-use crate::ui;
 use crate::pacdat::{PacDat, StreamKey};
 use crate::pacstream::PacStream;
 use crate::pcap::Pcap;
@@ -52,14 +51,12 @@ pub fn run(args: HashSet<String>) {
     println!("done.\n~pcap..");
 
     let mut streams = Streams::new();
-    let mut last_packets = 0u64;
+    let mut packets = 0u64;
     let mut last_dropped = 0u64;
-    let mut last_q_max = 0u64;
+    let mut q_max = 0u64;
     let mut running = false;
 
     let mut ui = UI::init();
-
-    ui::set_panic_hook();
 
     let pcap = Pcap::new();
     pcap.start(dev);
@@ -74,30 +71,30 @@ pub fn run(args: HashSet<String>) {
                 }
 
                 tally(&mut pac_dat, &mut streams, &mut resolver, &interfaces);
-                last_packets += 1 ;
-                last_q_max = max(last_q_max, pcap.decrement_and_get_q_depth());
+                packets += 1 ;
+                q_max = max(q_max, pcap.decrement_and_get_q_depth());
             }
             Err(_recv_timeout_non_error) => {
             }
         }
 
-        ui::keystroke_handler();
+        ui.check_key();
 
         if ui.should_redraw() {
             let start = Instant::now();
             let dropped = pcap.packets_dropped();
             let dropped_curr = dropped - last_dropped;
 
-            ui.draw(&mut streams, last_q_max, dropped_curr);
+            ui.draw(&mut streams, q_max, dropped_curr);
 
-            log(format!("redraw[qMax:{} packets:{}] took {:?}", last_q_max, last_packets, start.elapsed()));
+            log(format!("redraw[q:{} packets:{}] took {:?}", q_max, packets, start.elapsed()));
 
             if dropped_curr > 0 {
                 log(format!("err: dropped {} packets", dropped_curr));
             }
 
-            last_packets = 0;
-            last_q_max = 0;
+            packets = 0;
+            q_max = 0;
             last_dropped = dropped;
         }
     }

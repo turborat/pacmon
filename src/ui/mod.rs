@@ -140,6 +140,18 @@ impl UI {
         CMD_INFO.lock().unwrap().insert(c, desc.to_string());
     }
 
+    pub fn check_key(&self) {
+        nodelay(stdscr(), true);
+        let c = getch();
+        if c != ERR {
+            match CMDS.lock().unwrap().get(&std::char::from_u32(c as u32).unwrap()) {
+                Some(cmd) => cmd(),
+                None => log(format!("getch({})", c))
+            }
+            UI::request_redraw();
+        }
+    }
+
     fn store_widths(widths: &Vec<i16>) {
         let mut prev_widths = WIDTHS.lock().unwrap();
         prev_widths.clear();
@@ -233,17 +245,6 @@ fn render_footer(q_depth: u64, dropped: u64) -> String {
             LINES(), COLS(), q_depth, dropped, period, sort, paused)
 }
 
-pub(crate) fn keystroke_handler() {
-    nodelay(stdscr(), true);
-    let c = getch();
-    if c != ERR {
-        match CMDS.lock().unwrap().get(&std::char::from_u32(c as u32).unwrap()) {
-            Some(cmd) => cmd(),
-            None => log(format!("getch({})", c))
-        }
-        UI::request_redraw();
-    }
-}
 
 pub fn shutdown(code:i32, msg:String) {
     endwin();
@@ -251,7 +252,7 @@ pub fn shutdown(code:i32, msg:String) {
     std::process::exit(code);
 }
 
-pub fn set_panic_hook() {
+fn set_panic_hook() {
     panic::set_hook(Box::new(|panic_info| {
         let msg = format!("DIED: {:?} {}", panic_info, Backtrace::capture());
         if msg.contains("Operation not permitted") {
