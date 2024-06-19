@@ -3,7 +3,7 @@ mod normal_mode;
 mod help_mode;
 mod stats;
 
-use std::{panic, sync, thread};
+use std::{panic, sync};
 use std::backtrace::Backtrace;
 use std::cmp::{max, min, Ordering};
 use std::collections::{BTreeMap, HashMap};
@@ -76,10 +76,6 @@ impl UI {
         self.register_cmd('0', "<1s",     || REDRAW_PERIOD.store(200, Relaxed));
         self.register_cmd(66 as char, "interval--", || { REDRAW_PERIOD.fetch_add(-9, Relaxed) ;});
         self.register_cmd(65 as char, "interval++", || { REDRAW_PERIOD.fetch_add( 9, Relaxed) ;});
-
-        let _ = thread::Builder::new()
-            .name("pacmon:key-stroker".to_string())
-            .spawn(|| keystroke_handler());
 
         self.start_time = millitime();
     }
@@ -237,9 +233,10 @@ fn render_footer(q_depth: u64, dropped: u64) -> String {
             LINES(), COLS(), q_depth, dropped, period, sort, paused)
 }
 
-fn keystroke_handler() {
-    loop {
-        let c = getch();
+pub(crate) fn keystroke_handler() {
+    nodelay(stdscr(), true);
+    let c = getch();
+    if c != ERR {
         match CMDS.lock().unwrap().get(&std::char::from_u32(c as u32).unwrap()) {
             Some(cmd) => cmd(),
             None => log(format!("getch({})", c))

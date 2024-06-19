@@ -81,6 +81,8 @@ pub fn run(args: HashSet<String>) {
             }
         }
 
+        ui::keystroke_handler();
+
         if ui.should_redraw() {
             let start = Instant::now();
             let dropped = pcap.packets_dropped();
