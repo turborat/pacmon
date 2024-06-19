@@ -75,7 +75,11 @@ fn render_row(stream: &PacStream, total_bytes_sent: u64, total_bytes_recv: u64, 
     row.push(Cell::new(LHS, ":"));
 
     row.push(Cell::new(LHS, &match resolve {
-        true => stream.local_service.to_string(),
+        true => {
+            let mut ss = stream.local_service.to_string();
+            ss.truncate(6);
+            ss
+        },
         false => stream.local_port.to_string()
     }));
 

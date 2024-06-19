@@ -28,7 +28,7 @@ pub struct Location {
 
 impl IpData {
     pub fn new() -> Self {
-        let mut companies: BTreeMap<u128, Company> = BTreeMap::new();
+        let mut companies: BTreeMap<u128, Corp> = BTreeMap::new();
         {
             let start = Instant::now();
             let ccc = companies::load();
@@ -61,10 +61,8 @@ impl IpData {
     }
 
     pub fn company(&self, addr:&IpAddr) -> Option<String> {
-        let t1 = Instant::now();
         let ip_int = addr_to_int(addr);
-        if let Some((&subnet, &ref company)) = self.companies.range(..=ip_int).next_back() {
-            log(format!("ipdata::lookup::company[{}] took {:?}", addr, t1.elapsed()));
+        if let Some((&subnet, &ref company)) = self.corps.range(..=ip_int).next_back() {
             if same_subnet(ip_int, subnet, company.bit_mask) {
               return Some(company.name.to_string());
             } 
@@ -73,10 +71,8 @@ impl IpData {
     }
 
     pub fn cc(&self, addr:&IpAddr) -> String {
-        let t1 = Instant::now();
         let ip_int = addr_to_int(addr);
         if let Some((&subnet, &ref location)) = self.locations.range(..=ip_int).next_back() {
-            log(format!("ipdata::lookup::location[{}] took {:?}", addr, t1.elapsed()));
             if same_subnet(ip_int, subnet, location.bit_mask) {
               return location.country.to_string();
             }
