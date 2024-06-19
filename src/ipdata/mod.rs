@@ -11,11 +11,11 @@ use std::time::Instant;
 use crate::subnets::{addr_to_int};
 
 pub struct IpData {
-    companies: BTreeMap<u128, Company>,
+    corps: BTreeMap<u128, Corp>,
     locations: BTreeMap<u128, Location>,
 }
 
-pub struct Company {
+pub struct Corp {
     pub bit_mask: u128,
     pub name: String
 }
@@ -28,12 +28,12 @@ pub struct Location {
 
 impl IpData {
     pub fn new() -> Self {
-        let mut companies: BTreeMap<u128, Corp> = BTreeMap::new();
+        let mut corps: BTreeMap<u128, Corp> = BTreeMap::new();
         {
             let start = Instant::now();
             let ccc = companies::load();
             for cc in ccc {
-                companies.insert(cc.0, Company { 
+                corps.insert(cc.0, Corp {
                   bit_mask: bit_mask(cc.1, mask_width(cc.0)), 
                   name: cc.2.to_string() 
                 });
@@ -57,14 +57,14 @@ impl IpData {
           log(format!("ipdata::insert::locations took {:?}", start.elapsed()));
         }
 
-        IpData { companies, locations }
+        IpData { corps, locations }
     }
 
     pub fn company(&self, addr:&IpAddr) -> Option<String> {
         let ip_int = addr_to_int(addr);
-        if let Some((&subnet, &ref company)) = self.corps.range(..=ip_int).next_back() {
-            if same_subnet(ip_int, subnet, company.bit_mask) {
-              return Some(company.name.to_string());
+        if let Some((&subnet, &ref corp)) = self.corps.range(..=ip_int).next_back() {
+            if same_subnet(ip_int, subnet, corp.bit_mask) {
+              return Some(corp.name.to_string());
             } 
         }
         None
