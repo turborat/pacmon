@@ -49,12 +49,12 @@ fn hack_widths(widths: &mut Vec<i16>) {
 
     let render_len = widths.iter().sum::<i16>();
     let deficit = render_len - cols as i16;
-    let total = widths[local_col].wrapping_add(widths[remote_col]).wrapping_sub(deficit);
+    let budget = widths[local_col].wrapping_add(widths[remote_col]).wrapping_sub(deficit);
 
     // todo: panic if total too small - nothing to work with //
 
-    widths[local_col] = (total as f32 * ratio) as i16;
-    widths[remote_col] = total - widths[local_col];
+    widths[local_col] = (budget as f32 * ratio) as i16;
+    widths[remote_col] = budget - widths[local_col];
 }
 
 fn render_row(stream: &PacStream, total_bytes_sent: u64, total_bytes_recv: u64, resolve: bool, elapsed: u64) -> Vec<Cell> {

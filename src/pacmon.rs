@@ -65,7 +65,7 @@ pub fn run(args: HashSet<String>) {
     pcap.start(dev);
 
     loop {
-        match pcap.rx().recv_timeout(Duration::from_millis(100)) {
+        match pcap.rx().recv_timeout(Duration::from_millis(10)) {
             Ok(mut pac_dat) => {
                 // only start curses once we get a packet
                 if !running {
