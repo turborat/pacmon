@@ -47,7 +47,7 @@ pub(crate) fn print(ui: &mut UI, pac_vec: &Vec<PacStream>, q_depth: u64, dropped
 
     print_matrix(&mut matrix, &mut widths);
 
-    print_footer(ui, q_depth, dropped);
+    print_footer(ui, q_depth, dropped, widths.iter().sum::<i16>() as i32);
 
     refresh();
 

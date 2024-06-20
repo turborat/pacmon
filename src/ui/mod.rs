@@ -8,11 +8,10 @@ use std::backtrace::Backtrace;
 use std::cmp::{max, min, Ordering};
 use std::collections::{BTreeMap, HashMap};
 
-use chrono::{Local};
 use ncurses::*;
 use pacmon::Streams;
 
-use crate::etc::{log, mag_fmt, millitime};
+use crate::etc::{fmt_millis, log, mag_fmt, millitime};
 use crate::pacmon;
 use crate::pacstream::PacStream;
 use crate::ui::Justify::{LHS, RHS};
@@ -182,12 +181,12 @@ fn to_stream_vec<K>(streams: &mut BTreeMap<K, PacStream>, sort_by:i64) -> Vec<Pa
     pac_vec
 }
 
-fn print_footer(ui:&UI, q_depth: u64, dropped: u64) {
+fn print_footer(ui:&UI, q_depth: u64, dropped: u64, cols: i32) {
     let footer = render_footer(ui, q_depth, dropped);
     attron(A_REVERSE());
     mvprintw(LINES() - 1, 0, &footer);
-    pad(COLS() - footer.len() as i32);
-    mvprintw(LINES() - 1, COLS() - 12, &format!("{:?}", Local::now().time()));
+    pad(cols - footer.len() as i32);
+    mvprintw(LINES() - 1, cols - 12, &fmt_millis(ui.last_draw));
     attroff(A_REVERSE());
 }
 
