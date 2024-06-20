@@ -3,12 +3,10 @@ mod normal_mode;
 mod help_mode;
 mod stats;
 
-use std::{panic, sync};
+use std::{panic};
 use std::backtrace::Backtrace;
 use std::cmp::{max, min, Ordering};
 use std::collections::{BTreeMap, HashMap};
-use std::sync::atomic::{AtomicI64};
-use sync::atomic::Ordering::Relaxed;
 
 use chrono::{Local};
 use ncurses::*;
@@ -19,14 +17,13 @@ use crate::pacmon;
 use crate::pacstream::PacStream;
 use crate::ui::Justify::{LHS, RHS};
 
-static REDRAW_PERIOD:AtomicI64 = AtomicI64::new(2000);
-static SORT_BY:AtomicI64 = AtomicI64::new(0);
-
 pub struct UI {
+    redraw_period:i64,
     start_time: i64,
     last_draw: i64,
     last_cols: i32,
     widths:Vec<i16>,
+    sort_by:i64, 
     commands: HashMap<char,fn(&mut UI)>,
     command_info: BTreeMap<char,String>,
     redraw_requested:bool,
@@ -40,10 +37,12 @@ impl UI {
     pub fn init() -> Self {
         set_panic_hook();
         UI {
+            redraw_period: 2000,
             start_time: millitime(),
             last_draw: 0,
             last_cols: 0,
             widths: vec![],
+            sort_by: 0,
             commands: HashMap::new(),
             command_info: BTreeMap::new(),
             redraw_requested: false,
@@ -64,23 +63,23 @@ impl UI {
         self.register_cmd('r', "resolve", |ui| ui.resolve = ! ui.resolve);
         self.register_cmd(' ', "pause",   |ui| ui.paused = ! ui.paused);
         self.register_cmd('t', "trim",    |ui| ui.widths.clear() );
-        self.register_cmd('s', "sort",    |_ui| { let _ = SORT_BY.fetch_update(Relaxed, Relaxed, |v| Some(if v == 0 { 1 } else { 0 })); });
+        self.register_cmd('s', "sort",    |ui| ui.sort_by = (ui.sort_by + 1) % 2);
         self.register_cmd('c', "corps",   |ui| {
             ui.corp_mode = ! ui.corp_mode;
             ui.widths.clear();
         });
-        self.register_cmd('1', "1s",      |_ui| REDRAW_PERIOD.store(1000, Relaxed));
-        self.register_cmd('2', "2s",      |_ui| REDRAW_PERIOD.store(2000, Relaxed));
-        self.register_cmd('3', "3s",      |_ui| REDRAW_PERIOD.store(3000, Relaxed));
-        self.register_cmd('4', "4s",      |_ui| REDRAW_PERIOD.store(4000, Relaxed));
-        self.register_cmd('5', "5s",      |_ui| REDRAW_PERIOD.store(5000, Relaxed));
-        self.register_cmd('6', "6s",      |_ui| REDRAW_PERIOD.store(6000, Relaxed));
-        self.register_cmd('7', "7s",      |_ui| REDRAW_PERIOD.store(7000, Relaxed));
-        self.register_cmd('8', "8s",      |_ui| REDRAW_PERIOD.store(8000, Relaxed));
-        self.register_cmd('9', "9s",      |_ui| REDRAW_PERIOD.store(9000, Relaxed));
-        self.register_cmd('0', "<1s",     |_ui| REDRAW_PERIOD.store(200, Relaxed));
-        self.register_cmd(66 as char, "interval--", |_ui| { REDRAW_PERIOD.fetch_add(-9, Relaxed) ;});
-        self.register_cmd(65 as char, "interval++", |_ui| { REDRAW_PERIOD.fetch_add( 9, Relaxed) ;});
+        self.register_cmd('1', "1s",      |ui| ui.redraw_period = 1000);
+        self.register_cmd('2', "2s",      |ui| ui.redraw_period = 2000);
+        self.register_cmd('3', "3s",      |ui| ui.redraw_period = 3000);
+        self.register_cmd('4', "4s",      |ui| ui.redraw_period = 4000);
+        self.register_cmd('5', "5s",      |ui| ui.redraw_period = 5000);
+        self.register_cmd('6', "6s",      |ui| ui.redraw_period = 6000);
+        self.register_cmd('7', "7s",      |ui| ui.redraw_period = 7000);
+        self.register_cmd('8', "8s",      |ui| ui.redraw_period = 8000);
+        self.register_cmd('9', "9s",      |ui| ui.redraw_period = 9000);
+        self.register_cmd('0', "<1s",     |ui| ui.redraw_period = 200,);
+        self.register_cmd(66 as char, "interval--", |ui| ui.redraw_period -= 9 );
+        self.register_cmd(65 as char, "interval++", |ui| ui.redraw_period += 9 );
 
         self.start_time = millitime();
     }
@@ -103,13 +102,12 @@ impl UI {
         }
 
         let now = millitime();
-        let redraw_period = REDRAW_PERIOD.load(Relaxed);
 
         if now - self.start_time < 5000 {
             return now - self.last_draw > 99;
         }
 
-        if now - self.last_draw > redraw_period {
+        if now - self.last_draw > self.redraw_period {
             return true;
         }
 
@@ -121,15 +119,15 @@ impl UI {
         let interval = (now - self.last_draw) as u64;
 
         if self.help {
-            let pac_vec = to_stream_vec(&mut streams.by_stream);
+            let pac_vec = to_stream_vec(&mut streams.by_stream, self.sort_by);
             help_mode::print(self, &pac_vec, q_depth, dropped, interval);
         } else {
             if self.corp_mode {
-                let pac_vec = to_stream_vec(&mut streams.by_corp);
+                let pac_vec = to_stream_vec(&mut streams.by_corp, self.sort_by);
                 corp_mode::print(self, &pac_vec, q_depth, dropped, interval);
             }
             else {
-                let pac_vec = to_stream_vec(&mut streams.by_stream);
+                let pac_vec = to_stream_vec(&mut streams.by_stream, self.sort_by);
                 normal_mode::print(self, &pac_vec, q_depth, dropped, interval);
             }
         }
@@ -167,10 +165,10 @@ impl UI {
     }
 }
 
-fn to_stream_vec<K>(streams: &mut BTreeMap<K, PacStream>) -> Vec<PacStream> {
+fn to_stream_vec<K>(streams: &mut BTreeMap<K, PacStream>, sort_by:i64) -> Vec<PacStream> {
     let mut pac_vec: Vec<PacStream> = streams.values().cloned().collect();
 
-    if SORT_BY.load(Relaxed) == 0 {
+    if sort_by == 0 {
         pac_vec.sort_by(sort_by_last_ts);
     } else {
         pac_vec.sort_by(sort_by_bytes);
@@ -183,8 +181,8 @@ fn to_stream_vec<K>(streams: &mut BTreeMap<K, PacStream>) -> Vec<PacStream> {
     pac_vec
 }
 
-fn print_footer(q_depth: u64, dropped: u64, paused: bool) {
-    let footer = render_footer(q_depth, dropped, paused);
+fn print_footer(ui:&UI, q_depth: u64, dropped: u64) {
+    let footer = render_footer(ui, q_depth, dropped);
     attron(A_REVERSE());
     mvprintw(LINES() - 1, 0, &footer);
     pad(COLS() - footer.len() as i32);
@@ -233,15 +231,14 @@ fn print_matrix(matrix: &mut Vec<Vec<Cell>>, widths: &mut Vec<i16>) {
     }
 }
 
-fn render_footer(q_depth: u64, dropped: u64, paused: bool) -> String {
-    let interval = REDRAW_PERIOD.load(Relaxed);
-    let sort = match SORT_BY.load(Relaxed) {
+fn render_footer(ui:&UI, q_depth: u64, dropped: u64) -> String {
+    let sort = match ui.sort_by {
         0 => "time",
         1 => "total",
         _ => panic!("dead")
     };
     format!("{}x{} q:{} drop'd:{} interval:{}ms sort:{} pause:{}",
-            LINES(), COLS(), q_depth, dropped, interval, sort, paused)
+            LINES(), COLS(), q_depth, dropped, ui.redraw_period, sort, ui.paused)
 }
 
 
