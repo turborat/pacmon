@@ -7,7 +7,7 @@ use std::{panic, sync};
 use std::backtrace::Backtrace;
 use std::cmp::{max, min, Ordering};
 use std::collections::{BTreeMap, HashMap};
-use std::sync::atomic::{AtomicBool, AtomicI64};
+use std::sync::atomic::{AtomicI64};
 use std::sync::Mutex;
 use sync::atomic::Ordering::Relaxed;
 
@@ -25,18 +25,18 @@ static CMDS:Mutex<Lazy<HashMap<char,fn(&mut UI)>>> = Mutex::new(Lazy::new(||Hash
 static CMD_INFO:Mutex<Lazy<BTreeMap<char,String>>> = Mutex::new(Lazy::new(||BTreeMap::new()));
 
 static REDRAW_PERIOD:AtomicI64 = AtomicI64::new(2000);
-static RESOLVE:AtomicBool = AtomicBool::new(true);
-static HELP:AtomicBool = AtomicBool::new(false);
-static CORPORATE_MODE:AtomicBool = AtomicBool::new(false);
-static PAUSED:AtomicBool = AtomicBool::new(false);
 static SORT_BY:AtomicI64 = AtomicI64::new(0);
 
 pub struct UI {
     start_time: i64,
     last_draw: i64,
     last_cols: i32,
+    widths:Vec<i16>,
     redraw_requested:bool,
-    widths:Vec<i16>
+    paused:bool,
+    resolve:bool,
+    help:bool,
+    corp_mode:bool
 }
 
 impl UI {
@@ -46,8 +46,12 @@ impl UI {
             start_time: millitime(),
             last_draw: 0,
             last_cols: 0,
+            widths: vec![],
             redraw_requested: false,
-            widths: vec![]
+            paused: false,
+            resolve: true,
+            help: false,
+            corp_mode: false,
         }
     }
 
@@ -57,14 +61,14 @@ impl UI {
         refresh();
 
         self.register_cmd('q', "quit",    |_ui| shutdown(0, "bye".to_string()));
-        self.register_cmd('h', "help",    |_ui| { HELP.fetch_xor(true, Relaxed); });
-        self.register_cmd('r', "resolve", |_ui| { RESOLVE.fetch_xor(true, Relaxed); });
-        self.register_cmd(' ', "pause",   |_ui| { PAUSED.fetch_xor(true, Relaxed); });
-        self.register_cmd('t', "trim",    |ui| ui.trim_widths() );
+        self.register_cmd('h', "help",    |ui| ui.help = ! ui.help);
+        self.register_cmd('r', "resolve", |ui| ui.resolve = ! ui.resolve);
+        self.register_cmd(' ', "pause",   |ui| ui.paused = ! ui.paused);
+        self.register_cmd('t', "trim",    |ui| ui.widths.clear() );
         self.register_cmd('s', "sort",    |_ui| { let _ = SORT_BY.fetch_update(Relaxed, Relaxed, |v| Some(if v == 0 { 1 } else { 0 })); });
         self.register_cmd('c', "corps",   |ui| {
-            CORPORATE_MODE.fetch_xor(true, Relaxed);
-            ui.trim_widths();
+            ui.corp_mode = ! ui.corp_mode;
+            ui.widths.clear();
         });
         self.register_cmd('1', "1s",      |_ui| REDRAW_PERIOD.store(1000, Relaxed));
         self.register_cmd('2', "2s",      |_ui| REDRAW_PERIOD.store(2000, Relaxed));
@@ -95,7 +99,7 @@ impl UI {
             return true;
         }
 
-        if PAUSED.load(Relaxed) {
+        if self.paused {
             return false
         }
 
@@ -117,17 +121,17 @@ impl UI {
         let now = millitime();
         let interval = (now - self.last_draw) as u64;
 
-        if HELP.load(Relaxed) {
+        if self.help {
             let pac_vec = to_stream_vec(&mut streams.by_stream);
-            help_mode::print(&pac_vec, &self.widths, q_depth, dropped, interval, self.last_draw);
+            help_mode::print(&pac_vec, self, q_depth, dropped, interval);
         } else {
-            if CORPORATE_MODE.load(Relaxed) {
+            if self.corp_mode {
                 let pac_vec = to_stream_vec(&mut streams.by_corp);
-                corp_mode::print(&pac_vec, &mut self.widths, q_depth, dropped, interval);
+                corp_mode::print(&pac_vec, self, q_depth, dropped, interval);
             }
             else {
                 let pac_vec = to_stream_vec(&mut streams.by_stream);
-                normal_mode::print(&pac_vec, &mut self.widths, q_depth, dropped, interval);
+                normal_mode::print(&pac_vec, self, q_depth, dropped, interval);
             }
         }
 
@@ -159,10 +163,6 @@ impl UI {
         self.widths.extend(widths);
     }
 
-    fn trim_widths(&mut self) {
-        self.widths.clear();
-    }
-
     fn request_redraw(&mut self) {
         self.redraw_requested = true;
     }
@@ -184,8 +184,8 @@ fn to_stream_vec<K>(streams: &mut BTreeMap<K, PacStream>) -> Vec<PacStream> {
     pac_vec
 }
 
-fn print_footer(q_depth: u64, dropped: u64) {
-    let footer = render_footer(q_depth, dropped);
+fn print_footer(q_depth: u64, dropped: u64, paused: bool) {
+    let footer = render_footer(q_depth, dropped, paused);
     attron(A_REVERSE());
     mvprintw(LINES() - 1, 0, &footer);
     pad(COLS() - footer.len() as i32);
@@ -234,14 +234,13 @@ fn print_matrix(matrix: &mut Vec<Vec<Cell>>, widths: &mut Vec<i16>) {
     }
 }
 
-fn render_footer(q_depth: u64, dropped: u64) -> String {
+fn render_footer(q_depth: u64, dropped: u64, paused: bool) -> String {
     let interval = REDRAW_PERIOD.load(Relaxed);
     let sort = match SORT_BY.load(Relaxed) {
         0 => "time",
         1 => "total",
         _ => panic!("dead")
     };
-    let paused = PAUSED.load(Relaxed);
     format!("{}x{} q:{} drop'd:{} interval:{}ms sort:{} pause:{}",
             LINES(), COLS(), q_depth, dropped, interval, sort, paused)
 }
