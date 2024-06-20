@@ -1,9 +1,10 @@
 # pacmon
 The stream oriented packet monitor you always wanted
 
-Shows you which remote hosts your programs are talking to, including corporate owner:
+Displays network usage per process and stream including country and corporate owner:
 
 ![alt text](https://github.com/turborat/pacmon/blob/main/pacmon.png)
+<img src="https://github.com/turborat/pacmon/blob/main/pacmon.png" height=100>
 
 Also shows you network usage per corporation:
 
