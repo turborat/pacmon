@@ -26,12 +26,19 @@ pub(crate) fn print(ui: &UI, pac_vec: &Vec<PacStream>, q_depth: u64, dropped: u6
         format!("        recv: {:<8} sent:{:<8} interval: {:?}",
                 speed(bytes_recv_last, interval), speed(bytes_sent_last, interval), interval),
         format!("      widths: {:?}", ui.widths),
-        format!("    commands: {}", ui.command_info.iter()
-            .map(|(c, txt)| format!("'{}':{}", c, txt))
-            .collect::<Vec<String>>()
-            .join("  ")
-        )
     ];
+
+    let cmd_strs = ui.command_info.iter()
+                .map(|(c, txt)| format!("'{}':{}", c, txt))
+                .collect::<Vec<String>>();
+
+    for i in 0..cmd_strs.len()/3+1 {
+        tt.push(format!("    commands: {:24} {:24} {:24}",
+                        cmd_strs[i*3],
+                        cmd_strs.get(i*3+1).unwrap_or(&"".to_string()),
+                        cmd_strs.get(i*3+2).unwrap_or(&"".to_string())
+        ));
+    }
 
     for t in &mut tt {
         t.truncate(COLS() as usize - 2);

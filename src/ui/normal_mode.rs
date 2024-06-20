@@ -1,5 +1,4 @@
 use std::cmp::min;
-use std::sync::atomic::Ordering::Relaxed;
 use ncurses::{clear, COLS, LINES, refresh};
 use ui::{compute_widths, print_footer, print_matrix};
 use crate::pacstream::PacStream;
