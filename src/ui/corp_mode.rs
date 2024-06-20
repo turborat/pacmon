@@ -19,6 +19,8 @@ pub(crate) fn print(ui: &mut UI, pac_vec: &Vec<PacStream>, q_depth: u64, dropped
     header.push(Cell::new(RHS, "cc"));
     header.push(Cell::new(RHS, " "));
     stats::add_headers(&mut header, bytes_sent_last, bytes_recv_last, interval);
+    header.push(Cell::new(RHS, " "));
+    header.push(Cell::new(RHS, "age"));
     matrix.push(header);
 
     for i in 0..nrows {
@@ -34,6 +36,8 @@ pub(crate) fn print(ui: &mut UI, pac_vec: &Vec<PacStream>, q_depth: u64, dropped
         row.push(Cell::new(LHS, &pac.cc));
         row.push(Cell::new(LHS, " "));
         stats::add(&mut row, pac, bytes_sent_last, bytes_recv_last, interval);
+        row.push(Cell::new(RHS, " "));
+        row.push(Cell::new(RHS, &pac.age()));
         matrix.push(row);
     }
 

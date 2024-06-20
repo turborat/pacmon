@@ -20,11 +20,11 @@ pub(crate) fn print(ui: &UI, pac_vec: &Vec<PacStream>, q_depth: u64, dropped: u6
     let bytes_recv_last: u64 = pac_vec.iter().map(|s| s.bytes_recv_last).sum();
 
     let mut tt = vec![
-        format!("     q depth: {:<8} pacs drop'd: {}", q_depth, dropped),
-        format!("     resolve: {:<8} pause: {:?}", ui.resolve.to_string(), ui.paused),
-        format!("   last_draw: {}", fmt_millis(ui.last_draw)),
-        format!("        recv: {:<8} sent:{:<8} interval: {:?}",
+        format!("     q depth: {:<10} drop'd: {}", q_depth, dropped),
+        format!("     resolve: {:<10} pause: {:?}", ui.resolve.to_string(), ui.paused),
+        format!("        recv: {:<10} sent:{:<10} interval: {:?}",
                 speed(bytes_recv_last, interval), speed(bytes_sent_last, interval), interval),
+        format!("   last_draw: {}", fmt_millis(ui.last_draw)),
         format!("      widths: {:?}", ui.widths),
     ];
 

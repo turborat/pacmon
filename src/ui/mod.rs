@@ -60,6 +60,7 @@ impl UI {
 
         self.register_cmd('q', "quit",    |_ui| shutdown(0, "bye".to_string()));
         self.register_cmd('h', "help",    |ui| ui.help = ! ui.help);
+        self.register_cmd('?', "help",    |ui| ui.help = ! ui.help);
         self.register_cmd('r', "resolve", |ui| ui.resolve = ! ui.resolve);
         self.register_cmd(' ', "pause",   |ui| ui.paused = ! ui.paused);
         self.register_cmd('t', "trim",    |ui| ui.widths.clear() );
