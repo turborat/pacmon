@@ -2,7 +2,7 @@ use chrono::Local;
 use ncurses::{ACS_HLINE, ACS_LLCORNER, ACS_LRCORNER, ACS_ULCORNER, ACS_URCORNER, ACS_VLINE, clear, COLS, LINES, mvaddch, mvhline, mvprintw, mvvline, refresh};
 use crate::etc::fmt_millis;
 use crate::pacstream::PacStream;
-use crate::ui::{CMD_INFO, speed, UI};
+use crate::ui::{speed, UI};
 
 pub(crate) fn print(ui: &UI, pac_vec: &Vec<PacStream>, q_depth: u64, dropped: u64, interval: u64) {
     clear();
@@ -26,7 +26,7 @@ pub(crate) fn print(ui: &UI, pac_vec: &Vec<PacStream>, q_depth: u64, dropped: u6
         format!("        recv: {:<8} sent:{:<8} interval: {:?}",
                 speed(bytes_recv_last, interval), speed(bytes_sent_last, interval), interval),
         format!("      widths: {:?}", ui.widths),
-        format!("    commands: {}", CMD_INFO.lock().unwrap().iter()
+        format!("    commands: {}", ui.command_info.iter()
             .map(|(c, txt)| format!("'{}':{}", c, txt))
             .collect::<Vec<String>>()
             .join("  ")

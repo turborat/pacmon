@@ -8,21 +8,16 @@ use std::backtrace::Backtrace;
 use std::cmp::{max, min, Ordering};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicI64};
-use std::sync::Mutex;
 use sync::atomic::Ordering::Relaxed;
 
 use chrono::{Local};
 use ncurses::*;
-use once_cell::sync::Lazy;
 use pacmon::Streams;
 
 use crate::etc::{log, mag_fmt, millitime};
 use crate::pacmon;
 use crate::pacstream::PacStream;
 use crate::ui::Justify::{LHS, RHS};
-
-static CMDS:Mutex<Lazy<HashMap<char,fn(&mut UI)>>> = Mutex::new(Lazy::new(||HashMap::new()));
-static CMD_INFO:Mutex<Lazy<BTreeMap<char,String>>> = Mutex::new(Lazy::new(||BTreeMap::new()));
 
 static REDRAW_PERIOD:AtomicI64 = AtomicI64::new(2000);
 static SORT_BY:AtomicI64 = AtomicI64::new(0);
@@ -32,6 +27,8 @@ pub struct UI {
     last_draw: i64,
     last_cols: i32,
     widths:Vec<i16>,
+    commands: HashMap<char,fn(&mut UI)>,
+    command_info: BTreeMap<char,String>,
     redraw_requested:bool,
     paused:bool,
     resolve:bool,
@@ -47,6 +44,8 @@ impl UI {
             last_draw: 0,
             last_cols: 0,
             widths: vec![],
+            commands: HashMap::new(),
+            command_info: BTreeMap::new(),
             redraw_requested: false,
             paused: false,
             resolve: true,
@@ -138,19 +137,19 @@ impl UI {
         self.last_draw = now;
     }
 
-    fn register_cmd(&self, c: char, desc: &str, cmd: fn(&mut UI)) {
-        match CMDS.lock().unwrap().insert(c, cmd) {
+    fn register_cmd(&mut self, c: char, desc: &str, cmd: fn(&mut UI)) {
+        match self.commands.insert(c, cmd) {
             None => {}
             Some(_) => panic!("dupe:{}", c)
         }
-        CMD_INFO.lock().unwrap().insert(c, desc.to_string());
+        self.command_info.insert(c, desc.to_string());
     }
 
     pub fn check_key(&mut self) {
         nodelay(stdscr(), true);
         let c = getch();
         if c != ERR {
-            match CMDS.lock().unwrap().get(&std::char::from_u32(c as u32).unwrap()) {
+            match self.commands.get(&std::char::from_u32(c as u32).unwrap()) {
                 Some(cmd) => cmd(self),
                 None => log(format!("getch({})", c))
             }
