@@ -25,7 +25,6 @@ static CMDS:Mutex<Lazy<HashMap<char,fn()>>> = Mutex::new(Lazy::new(||HashMap::ne
 static CMD_INFO:Mutex<Lazy<BTreeMap<char,String>>> = Mutex::new(Lazy::new(||BTreeMap::new()));
 static WIDTHS: Mutex<Lazy<Vec<i16>>> = Mutex::new(Lazy::new(||vec![]));
 
-static REDRAW_REQUSTED:AtomicBool = AtomicBool::new(false);
 static REDRAW_PERIOD:AtomicI64 = AtomicI64::new(2000);
 static RESOLVE:AtomicBool = AtomicBool::new(true);
 static HELP:AtomicBool = AtomicBool::new(false);
@@ -36,7 +35,8 @@ static SORT_BY:AtomicI64 = AtomicI64::new(0);
 pub struct UI {
     start_time: i64,
     last_draw: i64,
-    last_cols: i32
+    last_cols: i32,
+    redraw_requested:bool
 }
 
 impl UI {
@@ -45,7 +45,8 @@ impl UI {
         UI {
             start_time: millitime(),
             last_draw: 0,
-            last_cols: 0
+            last_cols: 0,
+            redraw_requested: false
         }
     }
 
@@ -58,11 +59,11 @@ impl UI {
         self.register_cmd('h', "help",    || { HELP.fetch_xor(true, Relaxed); });
         self.register_cmd('r', "resolve", || { RESOLVE.fetch_xor(true, Relaxed); });
         self.register_cmd(' ', "pause",   || { PAUSED.fetch_xor(true, Relaxed); });
-        self.register_cmd('t', "trim",    || UI::trim_widths() );
+        self.register_cmd('t', "trim",    || self.trim_widths() );
         self.register_cmd('s', "sort",    || { let _ = SORT_BY.fetch_update(Relaxed, Relaxed, |v| Some(if v == 0 { 1 } else { 0 })); });
         self.register_cmd('c', "corps",   || {
             CORPORATE_MODE.fetch_xor(true, Relaxed);
-            UI::trim_widths();
+            self.trim_widths();
         });
         self.register_cmd('1', "1s",      || REDRAW_PERIOD.store(1000, Relaxed));
         self.register_cmd('2', "2s",      || REDRAW_PERIOD.store(2000, Relaxed));
@@ -81,7 +82,8 @@ impl UI {
     }
 
     pub fn should_redraw(&mut self) -> bool {
-        if REDRAW_REQUSTED.swap(false, Relaxed) {
+        if self.redraw_requested {
+            self.redraw_requested = false;
             return true;
         }
 
@@ -140,7 +142,7 @@ impl UI {
         CMD_INFO.lock().unwrap().insert(c, desc.to_string());
     }
 
-    pub fn check_key(&self) {
+    pub fn check_key(&mut self) {
         nodelay(stdscr(), true);
         let c = getch();
         if c != ERR {
@@ -148,7 +150,7 @@ impl UI {
                 Some(cmd) => cmd(),
                 None => log(format!("getch({})", c))
             }
-            UI::request_redraw();
+            self.request_redraw();
         }
     }
 
@@ -158,12 +160,12 @@ impl UI {
         prev_widths.extend(widths);
     }
 
-    fn trim_widths() {
+    fn trim_widths(&self) {
         WIDTHS.lock().unwrap().clear();
     }
 
-    fn request_redraw() {
-        REDRAW_REQUSTED.store(true, Relaxed);
+    fn request_redraw(&mut self) {
+        self.redraw_requested = true;
     }
 }
 
