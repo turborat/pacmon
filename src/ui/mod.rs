@@ -21,9 +21,8 @@ use crate::pacmon;
 use crate::pacstream::PacStream;
 use crate::ui::Justify::{LHS, RHS};
 
-static CMDS:Mutex<Lazy<HashMap<char,fn()>>> = Mutex::new(Lazy::new(||HashMap::new()));
+static CMDS:Mutex<Lazy<HashMap<char,fn(&mut UI)>>> = Mutex::new(Lazy::new(||HashMap::new()));
 static CMD_INFO:Mutex<Lazy<BTreeMap<char,String>>> = Mutex::new(Lazy::new(||BTreeMap::new()));
-static WIDTHS: Mutex<Lazy<Vec<i16>>> = Mutex::new(Lazy::new(||vec![]));
 
 static REDRAW_PERIOD:AtomicI64 = AtomicI64::new(2000);
 static RESOLVE:AtomicBool = AtomicBool::new(true);
@@ -36,7 +35,8 @@ pub struct UI {
     start_time: i64,
     last_draw: i64,
     last_cols: i32,
-    redraw_requested:bool
+    redraw_requested:bool,
+    widths:Vec<i16>
 }
 
 impl UI {
@@ -46,7 +46,8 @@ impl UI {
             start_time: millitime(),
             last_draw: 0,
             last_cols: 0,
-            redraw_requested: false
+            redraw_requested: false,
+            widths: vec![]
         }
     }
 
@@ -55,28 +56,28 @@ impl UI {
         curs_set(CURSOR_VISIBILITY::CURSOR_INVISIBLE);
         refresh();
 
-        self.register_cmd('q', "quit",    || shutdown(0, "bye".to_string()));
-        self.register_cmd('h', "help",    || { HELP.fetch_xor(true, Relaxed); });
-        self.register_cmd('r', "resolve", || { RESOLVE.fetch_xor(true, Relaxed); });
-        self.register_cmd(' ', "pause",   || { PAUSED.fetch_xor(true, Relaxed); });
-        self.register_cmd('t', "trim",    || self.trim_widths() );
-        self.register_cmd('s', "sort",    || { let _ = SORT_BY.fetch_update(Relaxed, Relaxed, |v| Some(if v == 0 { 1 } else { 0 })); });
-        self.register_cmd('c', "corps",   || {
+        self.register_cmd('q', "quit",    |_ui| shutdown(0, "bye".to_string()));
+        self.register_cmd('h', "help",    |_ui| { HELP.fetch_xor(true, Relaxed); });
+        self.register_cmd('r', "resolve", |_ui| { RESOLVE.fetch_xor(true, Relaxed); });
+        self.register_cmd(' ', "pause",   |_ui| { PAUSED.fetch_xor(true, Relaxed); });
+        self.register_cmd('t', "trim",    |ui| ui.trim_widths() );
+        self.register_cmd('s', "sort",    |_ui| { let _ = SORT_BY.fetch_update(Relaxed, Relaxed, |v| Some(if v == 0 { 1 } else { 0 })); });
+        self.register_cmd('c', "corps",   |ui| {
             CORPORATE_MODE.fetch_xor(true, Relaxed);
-            self.trim_widths();
+            ui.trim_widths();
         });
-        self.register_cmd('1', "1s",      || REDRAW_PERIOD.store(1000, Relaxed));
-        self.register_cmd('2', "2s",      || REDRAW_PERIOD.store(2000, Relaxed));
-        self.register_cmd('3', "3s",      || REDRAW_PERIOD.store(3000, Relaxed));
-        self.register_cmd('4', "4s",      || REDRAW_PERIOD.store(4000, Relaxed));
-        self.register_cmd('5', "5s",      || REDRAW_PERIOD.store(5000, Relaxed));
-        self.register_cmd('6', "6s",      || REDRAW_PERIOD.store(6000, Relaxed));
-        self.register_cmd('7', "7s",      || REDRAW_PERIOD.store(7000, Relaxed));
-        self.register_cmd('8', "8s",      || REDRAW_PERIOD.store(8000, Relaxed));
-        self.register_cmd('9', "9s",      || REDRAW_PERIOD.store(9000, Relaxed));
-        self.register_cmd('0', "<1s",     || REDRAW_PERIOD.store(200, Relaxed));
-        self.register_cmd(66 as char, "interval--", || { REDRAW_PERIOD.fetch_add(-9, Relaxed) ;});
-        self.register_cmd(65 as char, "interval++", || { REDRAW_PERIOD.fetch_add( 9, Relaxed) ;});
+        self.register_cmd('1', "1s",      |_ui| REDRAW_PERIOD.store(1000, Relaxed));
+        self.register_cmd('2', "2s",      |_ui| REDRAW_PERIOD.store(2000, Relaxed));
+        self.register_cmd('3', "3s",      |_ui| REDRAW_PERIOD.store(3000, Relaxed));
+        self.register_cmd('4', "4s",      |_ui| REDRAW_PERIOD.store(4000, Relaxed));
+        self.register_cmd('5', "5s",      |_ui| REDRAW_PERIOD.store(5000, Relaxed));
+        self.register_cmd('6', "6s",      |_ui| REDRAW_PERIOD.store(6000, Relaxed));
+        self.register_cmd('7', "7s",      |_ui| REDRAW_PERIOD.store(7000, Relaxed));
+        self.register_cmd('8', "8s",      |_ui| REDRAW_PERIOD.store(8000, Relaxed));
+        self.register_cmd('9', "9s",      |_ui| REDRAW_PERIOD.store(9000, Relaxed));
+        self.register_cmd('0', "<1s",     |_ui| REDRAW_PERIOD.store(200, Relaxed));
+        self.register_cmd(66 as char, "interval--", |_ui| { REDRAW_PERIOD.fetch_add(-9, Relaxed) ;});
+        self.register_cmd(65 as char, "interval++", |_ui| { REDRAW_PERIOD.fetch_add( 9, Relaxed) ;});
 
         self.start_time = millitime();
     }
@@ -90,7 +91,7 @@ impl UI {
         if self.last_cols != COLS() { // unreliable ??
             log("resize detected".to_string());
             self.last_cols = COLS();
-            WIDTHS.lock().unwrap().clear();
+            self.widths.clear();
             return true;
         }
 
@@ -114,27 +115,26 @@ impl UI {
 
     pub fn draw(&mut self, streams: &mut Streams, q_depth: u64, dropped: u64) {
         let now = millitime();
-        let prev_widths = { WIDTHS.lock().unwrap().clone() };
         let interval = (now - self.last_draw) as u64;
 
         if HELP.load(Relaxed) {
             let pac_vec = to_stream_vec(&mut streams.by_stream);
-            help_mode::print(&pac_vec, prev_widths, q_depth, dropped, interval, self.last_draw);
+            help_mode::print(&pac_vec, &self.widths, q_depth, dropped, interval, self.last_draw);
         } else {
             if CORPORATE_MODE.load(Relaxed) {
                 let pac_vec = to_stream_vec(&mut streams.by_corp);
-                corp_mode::print(&pac_vec, prev_widths, q_depth, dropped, interval);
+                corp_mode::print(&pac_vec, &mut self.widths, q_depth, dropped, interval);
             }
             else {
                 let pac_vec = to_stream_vec(&mut streams.by_stream);
-                normal_mode::print(&pac_vec, prev_widths, q_depth, dropped, interval);
+                normal_mode::print(&pac_vec, &mut self.widths, q_depth, dropped, interval);
             }
         }
 
         self.last_draw = now;
     }
 
-    fn register_cmd(&self, c: char, desc: &str, cmd: fn()) {
+    fn register_cmd(&self, c: char, desc: &str, cmd: fn(&mut UI)) {
         match CMDS.lock().unwrap().insert(c, cmd) {
             None => {}
             Some(_) => panic!("dupe:{}", c)
@@ -147,21 +147,20 @@ impl UI {
         let c = getch();
         if c != ERR {
             match CMDS.lock().unwrap().get(&std::char::from_u32(c as u32).unwrap()) {
-                Some(cmd) => cmd(),
+                Some(cmd) => cmd(self),
                 None => log(format!("getch({})", c))
             }
             self.request_redraw();
         }
     }
 
-    fn store_widths(widths: &Vec<i16>) {
-        let mut prev_widths = WIDTHS.lock().unwrap();
-        prev_widths.clear();
-        prev_widths.extend(widths);
+    fn store_widths(&mut self, widths: &Vec<i16>) {
+        self.widths.clear();
+        self.widths.extend(widths);
     }
 
-    fn trim_widths(&self) {
-        WIDTHS.lock().unwrap().clear();
+    fn trim_widths(&mut self) {
+        self.widths.clear();
     }
 
     fn request_redraw(&mut self) {
@@ -236,7 +235,7 @@ fn print_matrix(matrix: &mut Vec<Vec<Cell>>, widths: &mut Vec<i16>) {
 }
 
 fn render_footer(q_depth: u64, dropped: u64) -> String {
-    let period = REDRAW_PERIOD.load(Relaxed);
+    let interval = REDRAW_PERIOD.load(Relaxed);
     let sort = match SORT_BY.load(Relaxed) {
         0 => "time",
         1 => "total",
@@ -244,7 +243,7 @@ fn render_footer(q_depth: u64, dropped: u64) -> String {
     };
     let paused = PAUSED.load(Relaxed);
     format!("{}x{} q:{} drop'd:{} interval:{}ms sort:{} pause:{}",
-            LINES(), COLS(), q_depth, dropped, period, sort, paused)
+            LINES(), COLS(), q_depth, dropped, interval, sort, paused)
 }
 
 
