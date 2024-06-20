@@ -1,4 +1,4 @@
-mod companies;
+mod corps;
 mod locations1;
 mod locations2;
 mod locations3;
@@ -31,14 +31,14 @@ impl IpData {
         let mut corps: BTreeMap<u128, Corp> = BTreeMap::new();
         {
             let start = Instant::now();
-            let ccc = companies::load();
+            let ccc = corps::load();
             for cc in ccc {
                 corps.insert(cc.0, Corp {
                   bit_mask: bit_mask(cc.1, mask_width(cc.0)), 
                   name: cc.2.to_string() 
                 });
             }
-            log(format!("ipdata::insert::companies took {:?}", start.elapsed()));
+            log(format!("ipdata::insert::corps took {:?}", start.elapsed()));
         }
 
         let mut locations: BTreeMap<u128, Location> = BTreeMap::new();

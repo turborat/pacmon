@@ -217,8 +217,10 @@ fn print_matrix(matrix: &mut Vec<Vec<Cell>>, widths: &mut Vec<i16>) {
 
             if i == 0 {
                 attron(A_BOLD());
+                //attron(A_REVERSE());
             } else {
                 attroff(A_BOLD());
+                //attroff(A_REVERSE());
             }
 
             mvprintw(y as i32, x + offset, &txt);
