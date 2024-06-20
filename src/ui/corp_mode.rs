@@ -6,7 +6,7 @@ use crate::ui;
 use crate::ui::{Cell, compute_widths, stats, UI};
 use crate::ui::Justify::{LHS, RHS};
 
-pub(crate) fn print(pac_vec: &Vec<PacStream>, ui: &mut UI, q_depth: u64, dropped: u64, interval: u64) {
+pub(crate) fn print(ui: &mut UI, pac_vec: &Vec<PacStream>, q_depth: u64, dropped: u64, interval: u64) {
     let nrows = min(pac_vec.len(), (LINES() - 2) as usize);
     let mut matrix: Vec<Vec<Cell>> = Vec::new();
 

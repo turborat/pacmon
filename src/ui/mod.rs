@@ -123,15 +123,15 @@ impl UI {
 
         if self.help {
             let pac_vec = to_stream_vec(&mut streams.by_stream);
-            help_mode::print(&pac_vec, self, q_depth, dropped, interval);
+            help_mode::print(self, &pac_vec, q_depth, dropped, interval);
         } else {
             if self.corp_mode {
                 let pac_vec = to_stream_vec(&mut streams.by_corp);
-                corp_mode::print(&pac_vec, self, q_depth, dropped, interval);
+                corp_mode::print(self, &pac_vec, q_depth, dropped, interval);
             }
             else {
                 let pac_vec = to_stream_vec(&mut streams.by_stream);
-                normal_mode::print(&pac_vec, self, q_depth, dropped, interval);
+                normal_mode::print(self, &pac_vec, q_depth, dropped, interval);
             }
         }
 

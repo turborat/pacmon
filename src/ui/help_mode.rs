@@ -4,7 +4,7 @@ use crate::etc::fmt_millis;
 use crate::pacstream::PacStream;
 use crate::ui::{CMD_INFO, speed, UI};
 
-pub(crate) fn print(pac_vec: &Vec<PacStream>, ui: &UI, q_depth: u64, dropped: u64, interval: u64) {
+pub(crate) fn print(ui: &UI, pac_vec: &Vec<PacStream>, q_depth: u64, dropped: u64, interval: u64) {
     clear();
 
     mvaddch(0, 0, ACS_ULCORNER());
