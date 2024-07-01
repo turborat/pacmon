@@ -30,7 +30,7 @@ let bytes_sent_last: u64 = pac_vec.iter().map(|s| s.bytes_sent_last).sum();
                 speed(bytes_recv_last, interval), 
                 speed(bytes_sent_last, interval), 
                 interval, 
-                "<coming soon>" // fmt_millis(ui.last_draw)
+                fmt_millis(ui.start_time)
                 ),
         "".to_string()
     ];

@@ -20,7 +20,7 @@ pub(crate) fn print(ui: &mut UI, pac_vec: &Vec<PacStream>, q_depth: u64, dropped
     header.push(Cell::new(RHS, " "));
     stats::add_headers(&mut header, bytes_sent_last, bytes_recv_last, interval);
     header.push(Cell::new(RHS, " "));
-    header.push(Cell::new(RHS, "AGE"));
+    header.push(Cell::new(RHS, "LAST"));
     matrix.push(header);
 
     for i in 0..nrows {

@@ -17,7 +17,7 @@ use crate::pacstream::PacStream;
 use crate::ui::Justify::{LHS, RHS};
 
 pub struct UI {
-    redraw_period:i64,
+    redraw_interval:i64,
     start_time: i64,
     last_draw: i64,
     last_cols: i32,
@@ -36,7 +36,7 @@ impl UI {
     pub fn init() -> Self {
         set_panic_hook();
         UI {
-            redraw_period: 4000,
+            redraw_interval: 4000,
             start_time: millitime(),
             last_draw: 0,
             last_cols: 0,
@@ -68,18 +68,18 @@ impl UI {
             ui.corp_mode = ! ui.corp_mode;
             ui.widths.clear();
         });
-        self.register_cmd('1', "1s interval",      |ui| ui.redraw_period = 1000);
-        self.register_cmd('2', "2s interval",      |ui| ui.redraw_period = 2000);
-        self.register_cmd('3', "3s interval",      |ui| ui.redraw_period = 3000);
-        self.register_cmd('4', "4s interval",      |ui| ui.redraw_period = 4000);
-        self.register_cmd('5', "5s interval",      |ui| ui.redraw_period = 5000);
-        self.register_cmd('6', "6s interval",      |ui| ui.redraw_period = 6000);
-        self.register_cmd('7', "7s interval",      |ui| ui.redraw_period = 7000);
-        self.register_cmd('8', "8s interval",      |ui| ui.redraw_period = 8000);
-        self.register_cmd('9', "9s interval",      |ui| ui.redraw_period = 9000);
-        self.register_cmd('0', "<1s interval",     |ui| ui.redraw_period = 200,);
-        self.register_cmd(66 as char, "interval--", |ui| ui.redraw_period -= 9 );
-        self.register_cmd(65 as char, "interval++", |ui| ui.redraw_period += 9 );
+        self.register_cmd('1', "1s interval",      |ui| ui.redraw_interval = 1000);
+        self.register_cmd('2', "2s interval",      |ui| ui.redraw_interval = 2000);
+        self.register_cmd('3', "3s interval",      |ui| ui.redraw_interval = 3000);
+        self.register_cmd('4', "4s interval",      |ui| ui.redraw_interval = 4000);
+        self.register_cmd('5', "5s interval",      |ui| ui.redraw_interval = 5000);
+        self.register_cmd('6', "6s interval",      |ui| ui.redraw_interval = 6000);
+        self.register_cmd('7', "7s interval",      |ui| ui.redraw_interval = 7000);
+        self.register_cmd('8', "8s interval",      |ui| ui.redraw_interval = 8000);
+        self.register_cmd('9', "9s interval",      |ui| ui.redraw_interval = 9000);
+        self.register_cmd('0', "<1s interval",     |ui| ui.redraw_interval = 200,);
+        self.register_cmd(66 as char, "interval--", |ui| ui.redraw_interval -= 9 );
+        self.register_cmd(65 as char, "interval++", |ui| ui.redraw_interval += 9 );
 
         self.start_time = millitime();
     }
@@ -107,7 +107,7 @@ impl UI {
             return now - self.last_draw > 99;
         }
 
-        if now - self.last_draw > self.redraw_period {
+        if now - self.last_draw > self.redraw_interval {
             return true;
         }
 
@@ -132,7 +132,7 @@ impl UI {
             }
         }
 
-        self.last_draw = now;
+        self.last_draw = millitime();
     }
 
     fn register_cmd(&mut self, c: char, desc: &str, cmd: fn(&mut UI)) {
@@ -241,7 +241,7 @@ fn render_footer(ui:&UI, q_depth: u64, dropped: u64) -> String {
     };
 
     let mut ret = format!("{}x{} q:{} drop'd:{} interval:{}ms sort:{}",
-            LINES(), COLS(), q_depth, dropped, ui.redraw_period, sort);
+            LINES(), COLS(), q_depth, dropped, ui.redraw_interval, sort);
 
     if ui.paused {
       ret.push_str(" [paused]");
