@@ -36,7 +36,7 @@ impl UI {
     pub fn init() -> Self {
         set_panic_hook();
         UI {
-            redraw_period: 2000,
+            redraw_period: 4000,
             start_time: millitime(),
             last_draw: 0,
             last_cols: 0,

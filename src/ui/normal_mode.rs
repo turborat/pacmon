@@ -116,23 +116,23 @@ fn render_row(stream: &PacStream, total_bytes_sent: u64, total_bytes_recv: u64, 
 
 fn render_header(total_bytes_sent: u64, total_bytes_recv: u64, elapsed: u64, resolve: bool) -> Vec<Cell> {
     let mut row: Vec<Cell> = Vec::new();
-    row.push(Cell::new(RHS, "host|<proc>"));
+    row.push(Cell::new(RHS, "HOST|<PROC>"));
     row.push(Cell::new(LHS, ":"));
-    row.push(Cell::new(LHS, "port"));
+    row.push(Cell::new(LHS, "PORT"));
     row.push(Cell::new(LHS, " "));
-    row.push(Cell::new(RHS, "remote-host"));
+    row.push(Cell::new(RHS, "REMOTE-HOST"));
     row.push(Cell::new(LHS, ":"));
     row.push(Cell::new(LHS, match resolve {
-        true => "svc",
-        false => "port"
+        true => "SVC",
+        false => "PORT"
     }));
     row.push(Cell::new(RHS, " "));
     stats::add_headers(&mut row, total_bytes_sent, total_bytes_recv, elapsed);
     row.push(Cell::new(LHS, ""));
-    row.push(Cell::new(RHS, "age"));
+    row.push(Cell::new(RHS, "AGE"));
     row.push(Cell::new(LHS, ""));
-    row.push(Cell::new(RHS, "cc"));
+    row.push(Cell::new(RHS, "CC"));
     row.push(Cell::new(RHS, " "));
-    row.push(Cell::new(RHS, "corp"));
+    row.push(Cell::new(RHS, "CORP"));
     row
 }
