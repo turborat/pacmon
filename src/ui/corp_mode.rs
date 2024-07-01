@@ -14,13 +14,13 @@ pub(crate) fn print(ui: &mut UI, pac_vec: &Vec<PacStream>, q_depth: u64, dropped
     let bytes_recv_last: u64 = pac_vec.iter().map(|s| s.bytes_recv_last).sum();
 
     let mut header: Vec<Cell> = Vec::new();
-    header.push(Cell::new(LHS, "corp"));
+    header.push(Cell::new(LHS, "CORP"));
     header.push(Cell::new(RHS, " "));
-    header.push(Cell::new(RHS, "cc"));
+    header.push(Cell::new(RHS, "CC"));
     header.push(Cell::new(RHS, " "));
     stats::add_headers(&mut header, bytes_sent_last, bytes_recv_last, interval);
     header.push(Cell::new(RHS, " "));
-    header.push(Cell::new(RHS, "age"));
+    header.push(Cell::new(RHS, "AGE"));
     matrix.push(header);
 
     for i in 0..nrows {
