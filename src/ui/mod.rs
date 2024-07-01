@@ -239,8 +239,15 @@ fn render_footer(ui:&UI, q_depth: u64, dropped: u64) -> String {
         1 => "total",
         _ => panic!("dead")
     };
-    format!("{}x{} q:{} drop'd:{} interval:{}ms sort:{} pause:{}",
-            LINES(), COLS(), q_depth, dropped, ui.redraw_period, sort, ui.paused)
+
+    let mut ret = format!("{}x{} q:{} drop'd:{} interval:{}ms sort:{}",
+            LINES(), COLS(), q_depth, dropped, ui.redraw_period, sort);
+
+    if ui.paused {
+      ret.push_str(" [paused]");
+    }
+
+    ret
 }
 
 
