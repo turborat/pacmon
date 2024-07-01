@@ -9,6 +9,7 @@ pub(crate) fn print(ui: &UI, pac_vec: &Vec<PacStream>, q_depth: u64, dropped: u6
     mvaddch(0, 0, ACS_ULCORNER());
     mvhline(0, 1, ACS_HLINE(), COLS() - 2);
     mvaddch(0, COLS() - 1, ACS_URCORNER());
+
     mvhline(3, 1, ACS_HLINE(), COLS() - 2);
     mvvline(1, 0, ACS_VLINE(), LINES() - 2);
     mvvline(1, COLS() - 1, ACS_VLINE(), LINES() - 2);
@@ -53,7 +54,8 @@ let bytes_sent_last: u64 = pac_vec.iter().map(|s| s.bytes_sent_last).sum();
 
     let width = tt.iter().max_by_key(|s| s.len()).unwrap().len();
     let x_offset = (COLS() - width as i32) / 2;
-    let y_offset = (LINES() - tt.len() as i32) / 2;
+    //let y_offset = (LINES() - tt.len() as i32) / 2;
+    let y_offset = 1;
 
     for i in 0..tt.len() {
         mvprintw(i as i32 + y_offset, x_offset, &tt[i]);
