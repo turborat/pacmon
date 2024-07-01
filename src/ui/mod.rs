@@ -60,24 +60,24 @@ impl UI {
         self.register_cmd('q', "quit",    |_ui| shutdown(0, "bye".to_string()));
         self.register_cmd('h', "help",    |ui| ui.help = ! ui.help);
         self.register_cmd('?', "help",    |ui| ui.help = ! ui.help);
-        self.register_cmd('r', "resolve", |ui| ui.resolve = ! ui.resolve);
+        self.register_cmd('r', "resolve ip's", |ui| ui.resolve = ! ui.resolve);
         self.register_cmd(' ', "pause",   |ui| ui.paused = ! ui.paused);
         self.register_cmd('t', "trim",    |ui| ui.widths.clear() );
-        self.register_cmd('s', "sort",    |ui| ui.sort_by = (ui.sort_by + 1) % 2);
-        self.register_cmd('c', "corps",   |ui| {
+        self.register_cmd('s', "sort time/total",    |ui| ui.sort_by = (ui.sort_by + 1) % 2);
+        self.register_cmd('c', "corporate mode",   |ui| {
             ui.corp_mode = ! ui.corp_mode;
             ui.widths.clear();
         });
-        self.register_cmd('1', "1s",      |ui| ui.redraw_period = 1000);
-        self.register_cmd('2', "2s",      |ui| ui.redraw_period = 2000);
-        self.register_cmd('3', "3s",      |ui| ui.redraw_period = 3000);
-        self.register_cmd('4', "4s",      |ui| ui.redraw_period = 4000);
-        self.register_cmd('5', "5s",      |ui| ui.redraw_period = 5000);
-        self.register_cmd('6', "6s",      |ui| ui.redraw_period = 6000);
-        self.register_cmd('7', "7s",      |ui| ui.redraw_period = 7000);
-        self.register_cmd('8', "8s",      |ui| ui.redraw_period = 8000);
-        self.register_cmd('9', "9s",      |ui| ui.redraw_period = 9000);
-        self.register_cmd('0', "<1s",     |ui| ui.redraw_period = 200,);
+        self.register_cmd('1', "1s interval",      |ui| ui.redraw_period = 1000);
+        self.register_cmd('2', "2s interval",      |ui| ui.redraw_period = 2000);
+        self.register_cmd('3', "3s interval",      |ui| ui.redraw_period = 3000);
+        self.register_cmd('4', "4s interval",      |ui| ui.redraw_period = 4000);
+        self.register_cmd('5', "5s interval",      |ui| ui.redraw_period = 5000);
+        self.register_cmd('6', "6s interval",      |ui| ui.redraw_period = 6000);
+        self.register_cmd('7', "7s interval",      |ui| ui.redraw_period = 7000);
+        self.register_cmd('8', "8s interval",      |ui| ui.redraw_period = 8000);
+        self.register_cmd('9', "9s interval",      |ui| ui.redraw_period = 9000);
+        self.register_cmd('0', "<1s interval",     |ui| ui.redraw_period = 200,);
         self.register_cmd(66 as char, "interval--", |ui| ui.redraw_period -= 9 );
         self.register_cmd(65 as char, "interval++", |ui| ui.redraw_period += 9 );
 
