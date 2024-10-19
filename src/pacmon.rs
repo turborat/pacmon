@@ -17,9 +17,9 @@ use crate::pcap::Pcap;
 use crate::resolver::Resolver;
 use crate::ui::UI;
 
-pub(crate) struct Streams {
-    pub(crate) by_stream: BTreeMap<StreamKey, PacStream>,
-    pub(crate) by_corp: BTreeMap<String, PacStream>
+pub struct Streams {
+    pub by_stream: BTreeMap<StreamKey, PacStream>,
+    pub by_corp: BTreeMap<String, PacStream>
 }
 
 impl Streams {
@@ -39,8 +39,8 @@ pub fn run(args: HashSet<String>) {
     let mut interfaces = BTreeSet::new();
     let dev = Device::lookup().unwrap().unwrap();
     for addr in &dev.addresses {
-        if addr.addr.is_ipv4() { // no ipv6?
-            log(format!("snooping {:?} / {:?}", addr.addr, addr.netmask.unwrap()));
+        if addr.addr.is_ipv4() {
+            log(format!("snooping {:?} / {:?} (IPv4 only)", addr.addr, addr.netmask.unwrap()));
             interfaces.insert((addr.addr, addr.netmask.unwrap()));
         }
     }

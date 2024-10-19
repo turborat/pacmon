@@ -384,6 +384,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_resolve_host() {
         // todo: determine ip dynamically //
         let addr = V4(Ipv4Addr::from_str("192.168.1.109").unwrap());

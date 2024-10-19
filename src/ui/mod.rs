@@ -382,7 +382,7 @@ enum Justify {
     RHS
 }
 
-struct Cell {
+pub struct Cell {
     txt: String,
     justify: Justify
 }
